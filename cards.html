@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DocsAnimation — Handout Cards</title>
+<style>
+  :root{ --ink:#17181d; --mute:#5c5648; --gold:#c8931a; --line:#e6ded0; }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:#e9e4d8;color:var(--ink);font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .sheet{width:8.5in;min-height:11in;margin:22px auto;background:#fff;padding:0.5in;
+    display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:2.4in;gap:0.12in;box-shadow:0 8px 40px rgba(0,0,0,.15)}
+  .card{border:1px dashed #d8cfbb;border-radius:10px;padding:0.22in;display:flex;gap:0.2in;align-items:center}
+  .left{flex:1;min-width:0;display:flex;flex-direction:column;height:100%}
+  .brandrow{display:flex;align-items:center;gap:8px}
+  .logo{width:30px;height:30px;flex:none}
+  .bn{font-size:15px;font-weight:800;line-height:1}
+  .bn span{color:var(--gold)}
+  .tag{font-size:12.5px;color:var(--ink);font-weight:700;margin-top:9px;line-height:1.25}
+  .sub{font-size:10.5px;color:var(--mute);margin-top:5px;line-height:1.3}
+  .founder{margin-top:auto;font-size:10px;font-weight:800;color:var(--gold);text-transform:uppercase;letter-spacing:.04em}
+  .qrbox{width:1.35in;height:1.35in;flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .qrbox img{width:1.2in;height:1.2in}
+  .qrbox small{font-size:8.5px;color:var(--mute);margin-top:2px;font-weight:700}
+  .print-hint{max-width:8.5in;margin:0 auto 20px;text-align:center;color:#6b6455;font-size:13px}
+  @media print{ body{background:#fff} .sheet{margin:0;box-shadow:none;width:auto} .card{border-color:#eee} .print-hint{display:none} @page{margin:0.3in} }
+</style>
+</head>
+<body>
+<p class="print-hint">Print this (<b>Cmd/Ctrl + P</b>) and cut into 8 cards to hand out at the booth. Each card's QR opens your sign-up page.</p>
+<div class="sheet" id="sheet"></div>
+<script>
+  var card=
+    '<div class="card"><div class="left"><div class="brandrow">'+
+    '<svg class="logo" viewBox="0 0 44 44"><rect x="1" y="1" width="42" height="42" rx="11" style="fill:#17181d"/>'+
+    '<path d="M7 31 Q15 9 22 24 T37 15" style="fill:none;stroke:#e9bc3f;opacity:.75" stroke-width="2" stroke-dasharray="3 3"/>'+
+    '<circle cx="7" cy="31" r="2.4" style="fill:#8a8266"/><circle cx="22" cy="24" r="2.4" style="fill:#8a8266"/><circle cx="37" cy="15" r="5.4" style="fill:#e9bc3f"/></svg>'+
+    '<span class="bn">Docs<span>Animation</span></span></div>'+
+    '<div class="tag">A ready-to-teach high school animation program — start this fall.</div>'+
+    '<div class="sub">Curriculum + video lessons + a dashboard that tracks every student.</div>'+
+    '<div class="founder">Founder schools: 35% off</div></div>'+
+    '<div class="qrbox"><img src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=2&data=https%3A%2F%2Fleo0987.wixsite.com%2Fmysite%2Fcte-curriculum"><small>Scan for info</small></div></div>';
+  document.getElementById('sheet').innerHTML=new Array(8).fill(card).join('');
+</script>
+</body>
+</html>
