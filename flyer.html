@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DocsAnimation CTE — Flyer</title>
+<style>
+  :root{ --ink:#1c1a15; --mute:#5c5648; --gold:#c8931a; --gold-deep:#a6790f;
+         --line:#e6ded0; --soft:#faf6ec; --good:#1f9d6b; --crit:#cf3742; }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:#e9e4d8;color:var(--ink);
+    font-family:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .page{width:8.5in;min-height:11in;margin:22px auto;background:#fff;padding:0.7in 0.7in 0.55in;
+    box-shadow:0 8px 40px rgba(0,0,0,.15);display:flex;flex-direction:column}
+
+  header{display:flex;align-items:center;gap:13px;border-bottom:3px solid var(--gold);padding-bottom:16px}
+  .logo{width:52px;height:52px;flex:none}
+  .brand b{font-size:23px;font-weight:800;letter-spacing:.01em}
+  .brand b span{color:var(--gold)}
+  .brand small{display:block;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--mute);font-weight:700;margin-top:2px}
+
+  h1{font-size:33px;line-height:1.1;margin:26px 0 10px;letter-spacing:-.01em;text-wrap:balance}
+  h1 em{color:var(--gold-deep);font-style:normal}
+  .lede{font-size:15.5px;line-height:1.5;color:var(--mute);margin:0 0 22px;max-width:6.4in}
+
+  .cols{display:flex;gap:26px;margin-bottom:20px}
+  .feat{flex:1}
+  .feat h2{font-size:13px;text-transform:uppercase;letter-spacing:.1em;color:var(--gold-deep);margin:0 0 10px}
+  .feat ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:9px}
+  .feat li{font-size:14px;line-height:1.4;padding-left:20px;position:relative}
+  .feat li::before{content:"";position:absolute;left:0;top:6px;width:9px;height:9px;border-radius:50%;
+    background:var(--gold)}
+  .feat li b{font-weight:700}
+
+  .founder{background:var(--soft);border:1.5px solid var(--gold);border-radius:12px;
+    padding:16px 20px;margin-bottom:22px}
+  .founder .k{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--gold-deep);font-weight:800}
+  .founder .big{font-size:19px;font-weight:800;margin:4px 0 3px}
+  .founder p{margin:0;font-size:13px;color:var(--mute)}
+
+  .cta{margin-top:auto;display:flex;align-items:center;gap:22px;border-top:1px solid var(--line);padding-top:20px}
+  .qr{width:1.5in;height:1.5in;flex:none;border:1px solid var(--line);border-radius:8px;background:#fff}
+  .cta-txt h3{margin:0 0 5px;font-size:19px}
+  .cta-txt p{margin:0;font-size:13.5px;color:var(--mute);line-height:1.45}
+  .cta-txt .strong{color:var(--ink);font-weight:700}
+
+  footer{margin-top:16px;display:flex;justify-content:space-between;align-items:center;
+    font-size:12px;color:var(--mute);border-top:1px solid var(--line);padding-top:12px}
+  footer b{color:var(--ink)}
+
+  .print-hint{max-width:8.5in;margin:0 auto 24px;text-align:center;color:#6b6455;font-size:13px}
+  @media print{
+    body{background:#fff}
+    .page{margin:0;box-shadow:none;width:auto;min-height:auto;padding:0.5in}
+    .print-hint{display:none}
+    @page{margin:0.3in}
+  }
+</style>
+</head>
+<body>
+<p class="print-hint">This is your printable flyer. Press <b>Cmd/Ctrl + P</b> to print or save as PDF. (The QR sends people to your sign-up form.)</p>
+
+<div class="page">
+  <header>
+    <svg class="logo" viewBox="0 0 44 44" aria-hidden="true">
+      <rect x="1" y="1" width="42" height="42" rx="11" style="fill:#17181d"/>
+      <path d="M7 31 Q15 9 22 24 T37 15" style="fill:none;stroke:#e9bc3f;opacity:.75" stroke-width="2" stroke-dasharray="3 3"/>
+      <circle cx="7" cy="31" r="2.4" style="fill:#8a8266"/>
+      <circle cx="22" cy="24" r="2.4" style="fill:#8a8266"/>
+      <circle cx="37" cy="15" r="5.4" style="fill:#e9bc3f"/>
+    </svg>
+    <div class="brand"><b>Docs<span>Animation</span></b><small>CTE Animation Program</small></div>
+  </header>
+
+  <h1>A complete high-school animation program — <em>ready to teach this fall.</em></h1>
+  <p class="lede">Built by a working animation studio, not a textbook company. The curriculum, the instructor video demos, and the pencil-test assignments — plus a dashboard that watches every student's progress so no kid gets stuck. Connect it once and it runs itself.</p>
+
+  <div class="cols">
+    <div class="feat">
+      <h2>What you get</h2>
+      <ul>
+        <li><b>Ready-made curriculum</b> — lessons, videos &amp; assignments, done</li>
+        <li><b>Real instructor demos</b> — students watch, then animate</li>
+        <li><b>The class-monitor dashboard</b> — see who's on-pace and who's stuck, at a glance</li>
+        <li><b>Auto-pacing alerts</b> — nudges before a student stalls for weeks</li>
+      </ul>
+    </div>
+    <div class="feat">
+      <h2>Why teachers love it</h2>
+      <ul>
+        <li><b>No tech skills needed</b> — connect your Google Classroom, done</li>
+        <li><b>No more nagging</b> — the dashboard flags stuck students for you</li>
+        <li><b>Standards-aligned</b> to Arizona CTE animation</li>
+        <li><b>Start this school year</b> — the curriculum's ready now</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="founder">
+    <div class="k">Founder Schools — first 5 only</div>
+    <div class="big">35% off, locked in.</div>
+    <p>Be one of the first five schools, start this fall, and help shape it. After that, the price goes up.</p>
+  </div>
+
+  <div class="cta">
+    <img class="qr" alt="Scan to sign up"
+      src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=6&data=https%3A%2F%2Fleo0987.wixsite.com%2Fmysite%2Fcte-curriculum">
+    <div class="cta-txt">
+      <h3>Scan to get the full info</h3>
+      <p><span class="strong">Point your phone camera at the code.</span> Leave your name and email and we'll send you the complete package, a demo login, and your founder pricing. No commitment — just get the info.</p>
+    </div>
+  </div>
+
+  <footer>
+    <span><b>Leo Beltran</b> · Studio Beltran / DocsAnimation</span>
+    <span>docsanimation.org</span>
+  </footer>
+</div>
+</body>
+</html>
