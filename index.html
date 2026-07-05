@@ -135,6 +135,30 @@
   .note{margin-top:22px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;
     padding:14px 16px;font-size:13px;color:var(--mute)}
   .note b{color:var(--ink)}
+  /* ---- roster ---- */
+  .connect{display:flex;gap:15px;background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:18px;box-shadow:var(--shadow)}
+  .connect-ic{width:44px;height:44px;border-radius:11px;flex:none;display:grid;place-items:center;
+    font-weight:800;font-size:20px;color:#fff;background:linear-gradient(135deg,#4285F4,#34A853)}
+  .connect-body h3{margin:0 0 5px;font-size:16px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .rec{font-size:11px;font-weight:800;color:var(--good);background:var(--good-bg);border-radius:999px;padding:3px 9px;letter-spacing:.02em}
+  .connect-body p{margin:0 0 13px;color:var(--mute);font-size:13.5px}
+  .connect-msg{margin-top:12px;font-size:13px;color:var(--good);background:var(--good-bg);border-radius:9px;padding:10px 12px;font-weight:600}
+  .orbar{display:flex;align-items:center;gap:12px;margin:20px 2px 16px;color:var(--faint);font-size:12.5px;
+    text-transform:uppercase;letter-spacing:.1em;font-weight:700}
+  .orbar::before,.orbar::after{content:"";flex:1;height:1px;background:var(--line)}
+  .addrow{display:flex;gap:10px;margin-bottom:16px}
+  .addrow input{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);color:var(--ink);
+    border-radius:10px;padding:12px 14px;font-size:15px;font-family:inherit}
+  .addrow input:focus{outline:2px solid var(--gold);outline-offset:1px;border-color:transparent}
+  .rlist{display:flex;flex-direction:column;gap:8px}
+  .ritem{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);
+    border-radius:11px;padding:11px 14px;box-shadow:var(--shadow)}
+  .ritem .nm{font-weight:600;font-size:14.5px;flex:1;min-width:0}
+  .rm{appearance:none;border:0;background:transparent;color:var(--faint);cursor:pointer;font-size:20px;
+    line-height:1;padding:4px 8px;border-radius:8px}
+  .rm:hover{color:var(--crit);background:var(--crit-bg)}
+  .rcount{margin-top:14px;color:var(--mute);font-size:13px}
   [hidden]{display:none!important}
   @media (prefers-reduced-motion:reduce){*{animation:none!important}}
 
@@ -177,6 +201,7 @@
 
 <div class="tabs" role="tablist" aria-label="Views">
   <button class="tab" role="tab" id="tab-monitor" aria-selected="true" aria-controls="view-monitor" type="button">Class Monitor</button>
+  <button class="tab" role="tab" id="tab-roster" aria-selected="false" aria-controls="view-roster" type="button">Roster</button>
   <button class="tab" role="tab" id="tab-course" aria-selected="false" aria-controls="view-course" type="button">The Course</button>
 </div>
 
@@ -193,6 +218,32 @@
     <div class="note">
       <b>How the pacing works:</b> the moment a student crosses their limit, they turn red here and get a nudge — and so do you. You just glance at this board. The red pulse is Josh: he's been on Test&nbsp;4 for 6 days. That's the "sitting on it for weeks" problem, caught on day&nbsp;5 instead of week&nbsp;3.
     </div>
+  </section>
+
+  <!-- ROSTER -->
+  <section id="view-roster" role="tabpanel" aria-labelledby="tab-roster" hidden>
+    <h2 class="sec">Your Class Roster</h2>
+    <p class="sub">Two ways to get your students in — pick whichever fits how you already work.</p>
+
+    <div class="connect">
+      <div class="connect-ic">G</div>
+      <div class="connect-body">
+        <h3>Connect Google Classroom <span class="rec">easiest</span></h3>
+        <p>Your students are already in your Google Classroom — they joined with a class code. Connect once and every student appears here automatically. No typing names.</p>
+        <button class="btn" id="connectBtn" type="button">Connect Google Classroom</button>
+        <div class="connect-msg" id="connectMsg" hidden>✓ In the real app this pulls your whole class in automatically. (Demo — nothing connected.)</div>
+      </div>
+    </div>
+
+    <div class="orbar"><span>or add students yourself</span></div>
+
+    <form class="addrow" id="addForm">
+      <input type="text" id="addName" placeholder="Student name" aria-label="Student name" autocomplete="off">
+      <button class="btn" type="submit">Add Student</button>
+    </form>
+
+    <div class="rlist" id="rlist"></div>
+    <div class="rcount" id="rcount"></div>
   </section>
 
   <!-- COURSE -->
@@ -213,8 +264,8 @@
   });
 
   // tabs
-  var tabs=[document.getElementById('tab-monitor'),document.getElementById('tab-course')];
-  var views={'tab-monitor':'view-monitor','tab-course':'view-course'};
+  var tabs=[document.getElementById('tab-monitor'),document.getElementById('tab-roster'),document.getElementById('tab-course')];
+  var views={'tab-monitor':'view-monitor','tab-roster':'view-roster','tab-course':'view-course'};
   tabs.forEach(function(t){t.addEventListener('click',function(){
     tabs.forEach(function(x){x.setAttribute('aria-selected','false');});
     t.setAttribute('aria-selected','true');
@@ -287,6 +338,34 @@
       '<div class="cap tnum">'+(s.cur-1)+' tests complete &middot; on Test '+s.cur+' for '+s.day+' day'+(s.day>1?'s':'')+'</div></div>'+
       '<div class="status">'+badge+'<span class="days tnum">'+(st==='on'?'Day '+s.day+' of '+s.lim:'')+'</span>'+alert+'</div></div>';
   }).join('');
+
+  // --- roster (add / remove) ---
+  var roster=students.map(function(s){return {nm:s.nm,c:s.c};});
+  var PAL=['#6c8cff','#e07b53','#1f9d6b','#b45fd0','#2a9db8','#d0a53f','#5aa84f','#cf3742','#c8931a','#7a6cd0'];
+  function esc(t){return t.replace(/[&<>"]/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m];});}
+  function renderRoster(){
+    document.getElementById('rlist').innerHTML=roster.map(function(r,i){
+      var ini=r.nm.trim().split(/\s+/).map(function(w){return w[0];}).join('').slice(0,2).toUpperCase();
+      return '<div class="ritem"><div class="av" style="background:'+r.c+'">'+esc(ini)+'</div>'+
+        '<div class="nm">'+esc(r.nm)+'</div>'+
+        '<button class="rm" type="button" data-i="'+i+'" aria-label="Remove '+esc(r.nm)+'">&times;</button></div>';
+    }).join('');
+    document.getElementById('rcount').textContent=roster.length+' student'+(roster.length===1?'':'s')+' in this class.';
+  }
+  document.getElementById('rlist').addEventListener('click',function(e){
+    var b=e.target.closest('.rm'); if(!b)return;
+    roster.splice(+b.getAttribute('data-i'),1); renderRoster();
+  });
+  document.getElementById('addForm').addEventListener('submit',function(e){
+    e.preventDefault();
+    var inp=document.getElementById('addName'); var v=inp.value.trim();
+    if(!v)return;
+    roster.push({nm:v,c:PAL[roster.length%PAL.length]}); inp.value=''; renderRoster(); inp.focus();
+  });
+  document.getElementById('connectBtn').addEventListener('click',function(){
+    document.getElementById('connectMsg').hidden=false;
+  });
+  renderRoster();
 })();
 </script>
 
