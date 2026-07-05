@@ -1,0 +1,16 @@
+{
+  "name": "DocsAnimation — Course & Class Monitor",
+  "short_name": "DocsAnimation",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#17181d",
+  "theme_color": "#17181d",
+  "icons": [
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

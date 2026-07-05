@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>DocsAnimation — Course & Class Monitor</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  :root{
+    /* warm neutrals biased toward the brand gold */
+    --bg:#faf7f1; --panel:#ffffff; --panel2:#f3efe6; --line:#e6ded0;
+    --ink:#1c1a15; --mute:#726b5c; --faint:#a49a86;
+    --gold:#c8931a; --gold-soft:#f3e2b4;
+    --good:#1f9d6b; --good-bg:#e2f4ec;
+    --warn:#c9781a; --warn-bg:#fbebd6;
+    --crit:#cf3742; --crit-bg:#fbe3e4;
+    --shadow:0 1px 2px rgba(40,30,10,.06),0 8px 24px rgba(40,30,10,.06);
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#121317; --panel:#1b1d23; --panel2:#22242c; --line:#2f323c;
+      --ink:#f3f1ea; --mute:#9a9384; --faint:#6a6456;
+      --gold:#e9bc3f; --gold-soft:#3a3220;
+      --good:#3ecf8e; --good-bg:#12291f;
+      --warn:#f0a93c; --warn-bg:#2e2213;
+      --crit:#f2545b; --crit-bg:#301518;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#faf7f1; --panel:#ffffff; --panel2:#f3efe6; --line:#e6ded0;
+    --ink:#1c1a15; --mute:#726b5c; --faint:#a49a86;
+    --gold:#c8931a; --gold-soft:#f3e2b4;
+    --good:#1f9d6b; --good-bg:#e2f4ec;
+    --warn:#c9781a; --warn-bg:#fbebd6;
+    --crit:#cf3742; --crit-bg:#fbe3e4;
+    --shadow:0 1px 2px rgba(40,30,10,.06),0 8px 24px rgba(40,30,10,.06);
+  }
+  :root[data-theme="dark"]{
+    --bg:#121317; --panel:#1b1d23; --panel2:#22242c; --line:#2f323c;
+    --ink:#f3f1ea; --mute:#9a9384; --faint:#6a6456;
+    --gold:#e9bc3f; --gold-soft:#3a3220;
+    --good:#3ecf8e; --good-bg:#12291f;
+    --warn:#f0a93c; --warn-bg:#2e2213;
+    --crit:#f2545b; --crit-bg:#301518;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.5;-webkit-font-smoothing:antialiased}
+  .tnum{font-variant-numeric:tabular-nums}
+
+  /* ---- top bar ---- */
+  .bar{position:sticky;top:0;z-index:20;background:var(--panel);border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:14px;padding:12px 18px}
+  .brand{display:flex;align-items:center;gap:11px;min-width:0}
+  .logo{width:38px;height:38px;flex:none}
+  .wordmark{display:flex;flex-direction:column;line-height:1.05;min-width:0}
+  .wordmark b{font-size:17px;letter-spacing:.02em;font-weight:800}
+  .wordmark b span{color:var(--gold)}
+  .wordmark small{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);font-weight:700}
+  .spacer{flex:1}
+  .themebtn{appearance:none;background:var(--panel2);border:1px solid var(--line);color:var(--mute);
+    border-radius:9px;padding:8px 11px;cursor:pointer;font-size:13px;font-weight:600}
+  .themebtn:hover{color:var(--ink)}
+
+  /* ---- tabs ---- */
+  .tabs{display:flex;gap:6px;padding:14px 18px 0;max-width:1080px;margin:0 auto;width:100%}
+  .tab{appearance:none;background:transparent;border:0;border-bottom:2.5px solid transparent;
+    color:var(--mute);font-weight:700;font-size:15px;padding:10px 6px;cursor:pointer}
+  .tab[aria-selected="true"]{color:var(--ink);border-color:var(--gold)}
+  .tab:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:4px}
+
+  .wrap{max-width:1080px;margin:0 auto;padding:20px 18px 64px;width:100%}
+  .demo-flag{display:inline-flex;align-items:center;gap:7px;background:var(--gold-soft);color:var(--gold);
+    border-radius:999px;padding:5px 12px;font-size:12px;font-weight:800;letter-spacing:.03em}
+  .demo-flag::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--gold)}
+
+  h2.sec{font-size:22px;margin:16px 0 3px;letter-spacing:-.01em}
+  .sub{color:var(--mute);font-size:14px;margin:0 0 18px}
+
+  /* ---- course cards ---- */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+  .lesson{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 17px;
+    box-shadow:var(--shadow);display:flex;flex-direction:column;gap:9px}
+  .lesson .top{display:flex;align-items:center;gap:10px}
+  .lz{width:34px;height:34px;border-radius:9px;background:var(--panel2);border:1px solid var(--line);
+    display:grid;place-items:center;font-weight:800;color:var(--gold);font-size:15px;flex:none}
+  .lesson h3{font-size:15.5px;margin:0;line-height:1.25}
+  .lesson .meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+  .pill{font-size:11.5px;font-weight:700;border-radius:999px;padding:3px 9px;border:1px solid var(--line);
+    background:var(--panel2);color:var(--mute);display:inline-flex;align-items:center;gap:5px}
+  .pill.vid{color:var(--gold)}
+  .pill.days2{color:var(--good);background:var(--good-bg);border-color:transparent}
+  .pill.days4{color:var(--warn);background:var(--warn-bg);border-color:transparent}
+
+  /* ---- monitor: summary ---- */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:14px 15px;box-shadow:var(--shadow)}
+  .stat .n{font-size:28px;font-weight:800;letter-spacing:-.02em;line-height:1}
+  .stat .l{font-size:12.5px;color:var(--mute);margin-top:5px;font-weight:600}
+  .stat.good .n{color:var(--good)} .stat.warn .n{color:var(--warn)} .stat.crit .n{color:var(--crit)}
+  .stat .sev{width:26px;height:4px;border-radius:3px;margin-top:9px}
+  .stat.good .sev{background:var(--good)} .stat.warn .sev{background:var(--warn)}
+  .stat.crit .sev{background:var(--crit)} .stat.all .sev{background:var(--gold)}
+
+  /* ---- monitor: roster ---- */
+  .roster{display:flex;flex-direction:column;gap:10px}
+  .row{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:14px 16px;
+    box-shadow:var(--shadow);display:grid;grid-template-columns:170px 1fr auto;gap:16px;align-items:center}
+  .who{display:flex;align-items:center;gap:11px;min-width:0}
+  .av{width:36px;height:36px;border-radius:50%;flex:none;display:grid;place-items:center;
+    font-weight:800;font-size:14px;color:#fff}
+  .who .nm{font-weight:700;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .who .cur{font-size:12.5px;color:var(--mute)}
+  .prog{min-width:0}
+  .track{display:flex;gap:2px;height:16px}
+  .seg{flex:1;border-radius:2px;background:var(--panel2);border:1px solid var(--line)}
+  .seg.done{background:var(--good);border-color:transparent}
+  .seg.cur.on{background:var(--good);border-color:transparent;box-shadow:0 0 0 2px var(--good-bg)}
+  .seg.cur.warn{background:var(--warn);border-color:transparent;box-shadow:0 0 0 2px var(--warn-bg)}
+  .seg.cur.crit{background:var(--crit);border-color:transparent;box-shadow:0 0 0 2px var(--crit-bg);animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+  .prog .cap{font-size:12px;color:var(--faint);margin-top:6px}
+  .status{text-align:right;min-width:132px}
+  .badge{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:800;
+    border-radius:999px;padding:6px 12px}
+  .badge.on{color:var(--good);background:var(--good-bg)}
+  .badge.warn{color:var(--warn);background:var(--warn-bg)}
+  .badge.crit{color:var(--crit);background:var(--crit-bg)}
+  .status .days{display:block;font-size:12px;color:var(--mute);margin-top:5px}
+  .alert{margin-top:7px;font-size:11.5px;color:var(--crit);font-weight:700}
+
+  .note{margin-top:22px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;
+    padding:14px 16px;font-size:13px;color:var(--mute)}
+  .note b{color:var(--ink)}
+  [hidden]{display:none!important}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important}}
+
+  @media (max-width:720px){
+    .stats{grid-template-columns:repeat(2,1fr)}
+    .row{grid-template-columns:1fr;gap:12px}
+    .status{text-align:left;min-width:0}
+    .who .nm{white-space:normal}
+  }
+</style>
+
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#17181d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DocsAnimation">
+<link rel="apple-touch-icon" href="icon-512.png">
+<link rel="icon" type="image/png" href="icon-512.png">
+</head>
+<body>
+<div class="bar">
+  <div class="brand">
+    <svg class="logo" viewBox="0 0 44 44" aria-hidden="true">
+      <rect x="1" y="1" width="42" height="42" rx="11" style="fill:var(--panel2);stroke:var(--line)"/>
+      <path d="M7 31 Q15 9 22 24 T37 15" style="fill:none;stroke:var(--gold);opacity:.7" stroke-width="2" stroke-dasharray="3 3"/>
+      <circle cx="7" cy="31" r="2.4" style="fill:var(--faint)"/>
+      <circle cx="22" cy="24" r="2.4" style="fill:var(--faint)"/>
+      <circle class="ball" cx="37" cy="15" r="5.4" style="fill:var(--gold)"/>
+    </svg>
+    <div class="wordmark">
+      <b>Docs<span>Animation</span></b>
+      <small>Course &amp; Class Monitor</small>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <button class="themebtn" id="themebtn" type="button">◐ Theme</button>
+</div>
+
+<div class="tabs" role="tablist" aria-label="Views">
+  <button class="tab" role="tab" id="tab-monitor" aria-selected="true" aria-controls="view-monitor" type="button">Class Monitor</button>
+  <button class="tab" role="tab" id="tab-course" aria-selected="false" aria-controls="view-course" type="button">The Course</button>
+</div>
+
+<main class="wrap">
+  <!-- MONITOR -->
+  <section id="view-monitor" role="tabpanel" aria-labelledby="tab-monitor">
+    <span class="demo-flag">Sample class — demo data</span>
+    <h2 class="sec">Animation 101 &middot; Period 3</h2>
+    <p class="sub">Every student, self-paced. You see who's moving and who's stuck — no chasing. A simple test allows <b>2 days</b>, a complex one <b>4 days</b>; past that, they move on.</p>
+
+    <div class="stats" id="stats"></div>
+    <div class="roster" id="roster"></div>
+
+    <div class="note">
+      <b>How the pacing works:</b> the moment a student crosses their limit, they turn red here and get a nudge — and so do you. You just glance at this board. The red pulse is Josh: he's been on Test&nbsp;4 for 6 days. That's the "sitting on it for weeks" problem, caught on day&nbsp;5 instead of week&nbsp;3.
+    </div>
+  </section>
+
+  <!-- COURSE -->
+  <section id="view-course" role="tabpanel" aria-labelledby="tab-course" hidden>
+    <h2 class="sec">Animation 101 &middot; The Bouncing Ball</h2>
+    <p class="sub">10 lessons, 20 pencil tests, taught with Leo's own demo videos. Students watch, animate, and turn in their tests — this is the curriculum a school licenses.</p>
+    <div class="grid" id="lessons"></div>
+  </section>
+</main>
+
+<script>
+(function(){
+  var root=document.documentElement;
+  document.getElementById('themebtn').addEventListener('click',function(){
+    var cur=root.getAttribute('data-theme');
+    if(!cur){cur=matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';}
+    root.setAttribute('data-theme',cur==='dark'?'light':'dark');
+  });
+
+  // tabs
+  var tabs=[document.getElementById('tab-monitor'),document.getElementById('tab-course')];
+  var views={'tab-monitor':'view-monitor','tab-course':'view-course'};
+  tabs.forEach(function(t){t.addEventListener('click',function(){
+    tabs.forEach(function(x){x.setAttribute('aria-selected','false');});
+    t.setAttribute('aria-selected','true');
+    Object.keys(views).forEach(function(k){document.getElementById(views[k]).hidden=(k!==t.id);});
+  });});
+
+  // --- lesson data (real Animation 101) ---
+  var lessons=[
+    {n:1,t:"Bouncing Ball — Intro to Animation Tests",tests:"Tests 1–2",v:4,d:2},
+    {n:2,t:"Pendulum Swing & Ball Zoom",tests:"Tests 3–4",v:2,d:2},
+    {n:3,t:"Straight Line, Slow In / Slow Out & Shrinking Bounce",tests:"Tests 5–6",v:2,d:2},
+    {n:4,t:"Bounce Across Screen & Extreme Squash and Stretch",tests:"Tests 7–8",v:2,d:2},
+    {n:5,t:"Wall Stop & No-Decay Spin Loop",tests:"Tests 9–10",v:2,d:2},
+    {n:6,t:"Deflate on Impact & Bounce in Perspective",tests:"Tests 11–12",v:2,d:4},
+    {n:7,t:"Perspective Away & Bowling Ball Drop w/ Camera Shake",tests:"Tests 13–14",v:2,d:4},
+    {n:8,t:"Floating Bubble & Ball of Goo",tests:"Tests 15–16",v:2,d:4},
+    {n:9,t:"Morphing Ball to Triangle",tests:"Tests 17–18",v:2,d:4},
+    {n:10,t:"Pendulum Loops & Personal Ball Bounce",tests:"Tests 19–21",v:3,d:4}
+  ];
+  document.getElementById('lessons').innerHTML=lessons.map(function(l){
+    return '<div class="lesson"><div class="top"><div class="lz">'+l.n+'</div>'+
+      '<h3>'+l.t+'</h3></div><div class="meta">'+
+      '<span class="pill">'+l.tests+'</span>'+
+      '<span class="pill vid">▶ '+l.v+' videos</span>'+
+      '<span class="pill days'+l.d+'">'+l.d+'-day limit</span></div></div>';
+  }).join('');
+
+  // --- student data (demo) ---
+  var TOTAL=20;
+  var students=[
+    {nm:"Emma Wilson",   cur:18, day:1, lim:4, c:"#6c8cff"},
+    {nm:"Aaliyah Brooks",cur:15, day:3, lim:4, c:"#e07b53"},
+    {nm:"Maria Chen",    cur:12, day:1, lim:2, c:"#1f9d6b"},
+    {nm:"Sofia Patel",   cur:10, day:2, lim:2, c:"#b45fd0"},
+    {nm:"Diego Martinez",cur:8,  day:2, lim:4, c:"#2a9db8"},
+    {nm:"Tyler Nguyen",  cur:6,  day:5, lim:4, c:"#d0a53f"},
+    {nm:"Marcus Lee",    cur:4,  day:1, lim:2, c:"#5aa84f"},
+    {nm:"Josh Ramirez",  cur:4,  day:6, lim:4, c:"#cf3742"}
+  ];
+  function state(s){ if(s.day>s.lim)return'crit'; if(s.day>=s.lim)return'warn'; if(s.day===s.lim-1&&s.lim===2)return'warn'; return'on'; }
+  function initials(n){return n.split(' ').map(function(w){return w[0];}).join('').slice(0,2);}
+
+  // summary
+  var counts={on:0,warn:0,crit:0};
+  students.forEach(function(s){counts[state(s)]++;});
+  document.getElementById('stats').innerHTML=
+    '<div class="stat all"><div class="n tnum">'+students.length+'</div><div class="l">Students</div><div class="sev"></div></div>'+
+    '<div class="stat good"><div class="n tnum">'+counts.on+'</div><div class="l">On pace</div><div class="sev"></div></div>'+
+    '<div class="stat warn"><div class="n tnum">'+counts.warn+'</div><div class="l">Approaching limit</div><div class="sev"></div></div>'+
+    '<div class="stat crit"><div class="n tnum">'+counts.crit+'</div><div class="l">Over limit — nudge sent</div><div class="sev"></div></div>';
+
+  // roster
+  document.getElementById('roster').innerHTML=students.map(function(s){
+    var st=state(s);
+    var segs='';
+    for(var i=1;i<=TOTAL;i++){
+      var cls='seg';
+      if(i<s.cur)cls+=' done';
+      else if(i===s.cur)cls+=' cur '+st;
+      segs+='<span class="'+cls+'"></span>';
+    }
+    var badge = st==='crit'?'<span class="badge crit">● Over limit</span>'
+              : st==='warn'?'<span class="badge warn">● Day '+s.day+' of '+s.lim+'</span>'
+              : '<span class="badge on">● On pace</span>';
+    var alert = st==='crit'?'<div class="alert">⚠ '+s.day+' days on Test '+s.cur+' — move on</div>':'';
+    return '<div class="row"><div class="who">'+
+      '<div class="av" style="background:'+s.c+'">'+initials(s.nm)+'</div>'+
+      '<div><div class="nm">'+s.nm+'</div><div class="cur">Test '+s.cur+' of '+TOTAL+'</div></div></div>'+
+      '<div class="prog"><div class="track">'+segs+'</div>'+
+      '<div class="cap tnum">'+(s.cur-1)+' tests complete &middot; on Test '+s.cur+' for '+s.day+' day'+(s.day>1?'s':'')+'</div></div>'+
+      '<div class="status">'+badge+'<span class="days tnum">'+(st==='on'?'Day '+s.day+' of '+s.lim:'')+'</span>'+alert+'</div></div>';
+  }).join('');
+})();
+</script>
+
+</body>
+</html>
