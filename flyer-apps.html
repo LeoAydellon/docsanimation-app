@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DocsAnimation — Custom Classroom Apps Flyer</title>
+<style>
+  :root{ --ink:#1c1a15; --mute:#5c5648; --gold:#c8931a; --gold-deep:#a6790f;
+         --line:#e6ded0; --soft:#faf6ec; --blue:#2f6f9f; }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:#e9e4d8;color:var(--ink);
+    font-family:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .page{width:8.5in;min-height:11in;margin:22px auto;background:#fff;padding:0.7in 0.7in 0.55in;
+    box-shadow:0 8px 40px rgba(0,0,0,.15);display:flex;flex-direction:column}
+  header{display:flex;align-items:center;gap:13px;border-bottom:3px solid var(--gold);padding-bottom:16px}
+  .logo{width:52px;height:52px;flex:none}
+  .brand b{font-size:23px;font-weight:800;letter-spacing:.01em}
+  .brand b span{color:var(--gold)}
+  .brand small{display:block;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--mute);font-weight:700;margin-top:2px}
+  h1{font-size:33px;line-height:1.1;margin:26px 0 10px;letter-spacing:-.01em;text-wrap:balance}
+  h1 em{color:var(--gold-deep);font-style:normal}
+  .lede{font-size:15.5px;line-height:1.5;color:var(--mute);margin:0 0 22px;max-width:6.4in}
+  .what{background:var(--soft);border:1.5px solid var(--line);border-radius:12px;padding:16px 20px;margin-bottom:20px}
+  .what h2{font-size:13px;text-transform:uppercase;letter-spacing:.1em;color:var(--gold-deep);margin:0 0 10px}
+  .what ul{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .what li{font-size:13.5px;line-height:1.35;padding-left:19px;position:relative}
+  .what li::before{content:"";position:absolute;left:0;top:6px;width:9px;height:9px;border-radius:50%;background:var(--gold)}
+  .proof{margin-bottom:20px}
+  .proof h2{font-size:13px;text-transform:uppercase;letter-spacing:.1em;color:var(--gold-deep);margin:0 0 10px}
+  .cards{display:flex;gap:14px}
+  .card{flex:1;border:1px solid var(--line);border-radius:12px;padding:14px 15px}
+  .card b{display:block;font-size:15px;margin-bottom:4px}
+  .card p{margin:0;font-size:13px;color:var(--mute);line-height:1.4}
+  .steps{display:flex;gap:14px;margin-bottom:22px}
+  .step{flex:1;text-align:center}
+  .step .n{width:34px;height:34px;border-radius:50%;background:var(--gold);color:#fff;font-weight:800;
+    display:grid;place-items:center;margin:0 auto 8px}
+  .step p{margin:0;font-size:12.5px;color:var(--mute);line-height:1.35}
+  .cta{margin-top:auto;display:flex;align-items:center;gap:22px;border-top:1px solid var(--line);padding-top:20px}
+  .qr{width:1.5in;height:1.5in;flex:none;border:1px solid var(--line);border-radius:8px}
+  .cta-txt h3{margin:0 0 5px;font-size:19px}
+  .cta-txt p{margin:0;font-size:13.5px;color:var(--mute);line-height:1.45}
+  .cta-txt .strong{color:var(--ink);font-weight:700}
+  footer{margin-top:16px;display:flex;justify-content:space-between;align-items:center;
+    font-size:12px;color:var(--mute);border-top:1px solid var(--line);padding-top:12px}
+  footer b{color:var(--ink)}
+  .print-hint{max-width:8.5in;margin:0 auto 24px;text-align:center;color:#6b6455;font-size:13px}
+  .draft{display:inline-block;background:#fff3cd;color:#8a6d3b;border:1px solid #e6d9a8;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700}
+  @media print{ body{background:#fff} .page{margin:0;box-shadow:none;width:auto;min-height:auto;padding:0.5in} .print-hint{display:none} @page{margin:0.3in} }
+</style>
+</head>
+<body>
+<p class="print-hint">Printable flyer — <b>Cmd/Ctrl + P</b>. <span class="draft">DRAFT — pricing left open pending Leo's call</span></p>
+<div class="page">
+  <header>
+    <svg class="logo" viewBox="0 0 44 44" aria-hidden="true">
+      <rect x="1" y="1" width="42" height="42" rx="11" style="fill:#17181d"/>
+      <path d="M7 31 Q15 9 22 24 T37 15" style="fill:none;stroke:#e9bc3f;opacity:.75" stroke-width="2" stroke-dasharray="3 3"/>
+      <circle cx="7" cy="31" r="2.4" style="fill:#8a8266"/><circle cx="22" cy="24" r="2.4" style="fill:#8a8266"/>
+      <circle cx="37" cy="15" r="5.4" style="fill:#e9bc3f"/>
+    </svg>
+    <div class="brand"><b>Docs<span>Animation</span></b><small>Custom Classroom Apps</small></div>
+  </header>
+
+  <h1>Need an app for your classroom? <em>We'll build it.</em></h1>
+  <p class="lede">We make simple, tailored apps for teachers — progress trackers, self-paced checklists, assignment dashboards, whatever your class actually needs. Built around how YOU teach, no coding on your end, and on your phone or computer in days, not months.</p>
+
+  <div class="what">
+    <h2>What we can build for you</h2>
+    <ul>
+      <li><b>Student progress dashboards</b> — see who's on-pace, who's stuck</li>
+      <li><b>Self-paced lesson checklists</b> with photos &amp; steps</li>
+      <li><b>Assignment &amp; pacing trackers</b> that flag late work for you</li>
+      <li><b>Parent / home-practice tools</b></li>
+      <li><b>Anything class-specific</b> — you describe it, we build it</li>
+      <li><b>Works on any phone</b> — tap an icon, no app store</li>
+    </ul>
+  </div>
+
+  <div class="proof">
+    <h2>Already built &amp; running</h2>
+    <div class="cards">
+      <div class="card"><b>Animation 101 Monitor</b><p>A full CTE animation course with a live class-monitor dashboard — pacing alerts, auto-tracking, self-paced lessons.</p></div>
+      <div class="card"><b>Tend — Care Checklist</b><p>A photo-and-instructions checklist app with proof-of-completion and a supervisor view. Built in a day.</p></div>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step"><div class="n">1</div><p>Tell us what your class needs</p></div>
+    <div class="step"><div class="n">2</div><p>We build a working version fast</p></div>
+    <div class="step"><div class="n">3</div><p>You try it, we refine it</p></div>
+    <div class="step"><div class="n">4</div><p>It's live on every phone</p></div>
+  </div>
+
+  <div class="cta">
+    <img class="qr" alt="Scan to inquire"
+      src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=6&data=https%3A%2F%2Fleo0987.wixsite.com%2Fmysite%2Fcte-curriculum">
+    <div class="cta-txt">
+      <h3>Tell us what you need</h3>
+      <p><span class="strong">Scan the code</span> and describe the app your classroom could use. We'll come back with what we can build and what it takes — no obligation.</p>
+    </div>
+  </div>
+
+  <footer>
+    <span><b>Leo Beltran</b> · Studio Beltran / DocsAnimation</span>
+    <span>docsanimation.org</span>
+  </footer>
+</div>
+</body>
+</html>
