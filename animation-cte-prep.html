@@ -790,63 +790,32 @@ $('switchBtn').onclick = () => {
   };
 })();
 
-/* ===== LIVE QUESTIONS — reads bonus/fun questions from Leo's Google Sheet =====
-   The link never changes; edit the Sheet and the app picks new questions up on
-   next open. If the Sheet can't be read, the built-in questions are used as-is. */
+/* ===== LIVE QUESTIONS — extra/bonus questions Leo adds via Builder =====
+   Reads from the Verde database (a Google-hosted store, same as the memory).
+   The link never changes; new questions appear on next open. If it can't be
+   read, the built-in questions are used unchanged so the test never breaks. */
 (function(){
-  var SHEET_CSV = 'https://docs.google.com/spreadsheets/d/1c2Sf8NIAG5G5WiyBi5giusb5tgC-V4sTCEFzVXEumNE/gviz/tq?tqx=out:csv';
-  var SUBJECT = 'anim';
-  function parseCSV(text){
-    var rows=[], row=[], f='', i, q=false, c;
-    for(i=0; i<text.length; i++){
-      c=text[i];
-      if(q){
-        if(c==='"'){ if(text[i+1]==='"'){ f+='"'; i++; } else q=false; }
-        else f+=c;
-      } else {
-        if(c==='"') q=true;
-        else if(c===','){ row.push(f); f=''; }
-        else if(c==='\n'){ row.push(f); rows.push(row); row=[]; f=''; }
-        else if(c==='\r'){ /* ignore */ }
-        else f+=c;
-      }
-    }
-    if(f.length||row.length){ row.push(f); rows.push(row); }
-    return rows;
-  }
-  function apply(text){
-    var rows = parseCSV(text);
-    if(rows.length < 2) return 0;
-    var head = rows[0].map(function(x){ return String(x||'').toLowerCase().trim(); });
-    function col(name){ for(var j=0;j<head.length;j++){ if(head[j].indexOf(name)===0) return j; } return -1; }
-    var ci={ subject:col('subject'), standard:col('standard'), q:col('question'),
-             a:col('optiona'), b:col('optionb'), c:col('optionc'), d:col('optiond'),
-             correct:col('correct'), active:col('active') };
-    var added=0;
-    for(var k=1;k<rows.length;k++){
-      var r=rows[k]; if(!r) continue;
-      var subj=String(r[ci.subject]||'').toLowerCase().trim();
-      var active=String(r[ci.active]||'').toLowerCase().trim();
-      if(subj!==SUBJECT) continue;
-      if(active!=='yes'&&active!=='y'&&active!=='true') continue;
-      var qtext=String(r[ci.q]||'').trim(); if(!qtext) continue;
-      var opts=[r[ci.a],r[ci.b],r[ci.c],r[ci.d]].map(function(x){return String(x||'').trim();});
-      if(opts.filter(Boolean).length<2) continue;
-      var ans=parseInt(String(r[ci.correct]||'1'),10); if(isNaN(ans)) ans=1;
-      ans=Math.max(0,Math.min(opts.length-1,ans-1));
-      var sid=String(r[ci.standard]||'').trim();
-      var std=STANDARDS.filter(function(s){return s.id===sid;})[0]
-            || STANDARDS.filter(function(s){return s.id===sid+'.0';})[0];
-      if(!std) continue;
-      std.questions.push({ q:qtext, options:opts, answer:ans, why:'' });
-      added++;
-    }
-    return added;
-  }
+  var URL = 'https://verde-animation-25368-default-rtdb.firebaseio.com/content/anim.json';
   try {
-    fetch(SHEET_CSV, {cache:'no-store'})
-      .then(function(r){ return r.ok ? r.text() : null; })
-      .then(function(text){ if(text) apply(text); })
+    fetch(URL, {cache:'no-store'})
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(obj){
+        if(!obj) return;
+        Object.keys(obj).forEach(function(k){
+          var it = obj[k];
+          if(!it || it.active === false) return;
+          var q = String(it.q||'').trim(); if(!q) return;
+          var opts = (it.options||[]).map(function(x){ return String(x||'').trim(); });
+          if(opts.filter(Boolean).length < 2) return;
+          var ans = parseInt(it.answer, 10); if(isNaN(ans)) ans = 0;
+          ans = Math.max(0, Math.min(opts.length-1, ans));
+          var sid = String(it.standard||'').trim();
+          var std = STANDARDS.filter(function(s){ return s.id === sid; })[0]
+                 || STANDARDS.filter(function(s){ return s.id === sid + '.0'; })[0];
+          if(!std) return;
+          std.questions.push({ q:q, options:opts, answer:ans, why:String(it.why||'') });
+        });
+      })
       .catch(function(){});
   } catch(e){}
 })();
