@@ -165,6 +165,9 @@
     background:#f0f3f1;border:1px dashed var(--line);border-radius:10px;
     padding:12px;margin-top:12px;word-break:break-all;text-align:center;letter-spacing:.5px}
   @media print{header,.btn,.noprint{display:none !important}body{background:#fff}}
+  .qart{text-align:center;margin:2px 0 16px}
+  .qart .badge{display:inline-grid;place-items:center;width:92px;height:92px;border-radius:50%;background:#fdf3e2;border:2px solid #c8892b;font-size:52px;line-height:1;box-shadow:0 4px 14px rgba(200,137,43,.22)}
+  .qart .qtag{display:block;width:max-content;margin:10px auto 0;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#c8892b;background:#fdf3e2;border:1px solid #e9d9b6;border-radius:999px;padding:3px 10px}
 </style>
 </head>
 <body>
@@ -503,13 +506,19 @@ function startTest(t){
 function renderQ(){
   const S = session, item = S.items[S.i], q = item.q;
   /* Shuffle the options so a memorised position never carries a retry. */
-  const order = shuffle([0,1,2,3]);
+  const order = q.noShuffle ? [0,1,2,3] : shuffle([0,1,2,3]);
   S.order = order;
   $('qCount').textContent = 'Question ' + (S.i + 1) + ' of ' + S.n;
   $('qPips').innerHTML = S.items.map((_, i) =>
     '<span class="pip ' + (S.marks[i] === true ? 'r' : S.marks[i] === false ? 'w'
       : i === S.i ? 'cur' : '') + '"></span>').join('');
   $('qText').textContent = q.q;
+  (function(){
+    var host = $('qText'); var qa = document.getElementById('qArt');
+    if (!qa){ qa = document.createElement('div'); qa.id = 'qArt'; qa.className = 'qart'; host.parentNode.insertBefore(qa, host); }
+    if (q.art){ qa.innerHTML = '<span class="badge"></span><span class="qtag">Bonus</span>'; qa.querySelector('.badge').textContent = q.art; qa.style.display = 'block'; }
+    else { qa.innerHTML = ''; qa.style.display = 'none'; }
+  })();
   $('qWhy').innerHTML = '';
   $('nextBtn').classList.add('hide');
   S.locked = false;
@@ -813,7 +822,7 @@ $('switchBtn').onclick = () => {
           var std = STANDARDS.filter(function(s){ return s.id === sid; })[0]
                  || STANDARDS.filter(function(s){ return s.id === sid + '.0'; })[0];
           if(!std) return;
-          std.questions.push({ q:q, options:opts, answer:ans, why:String(it.why||'') });
+          std.questions.push({ q:q, options:opts, answer:ans, why:String(it.why||''), art:(it.art?String(it.art):''), noShuffle: it.noShuffle===true });
         });
       })
       .catch(function(){});
