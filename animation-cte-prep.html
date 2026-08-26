@@ -822,7 +822,7 @@ $('switchBtn').onclick = () => {
           var std = STANDARDS.filter(function(s){ return s.id === sid; })[0]
                  || STANDARDS.filter(function(s){ return s.id === sid + '.0'; })[0];
           if(!std) return;
-          std.questions.push({ q:q, options:opts, answer:ans, why:String(it.why||''), art:(it.art?String(it.art):''), noShuffle: it.noShuffle===true });
+          std.questions.push({ q:q, options:opts, answer:ans, why:String(it.why||''), art:(it.art?String(it.art):''), noShuffle: it.noShuffle===true, bonus: it.bonus===true });
         });
       })
       .catch(function(){});
