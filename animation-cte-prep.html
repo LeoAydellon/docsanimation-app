@@ -731,6 +731,65 @@ $('switchBtn').onclick = () => {
   $('nameIn').focus();
 };
 
+/* ============ CLOUD SYNC — remembers students across devices ============
+   Saves/loads progress to the Verde Firebase database (a Google-hosted store),
+   so a student resumes on ANY Chromebook just by typing their name. No login,
+   no extra library — a plain fetch. localStorage stays as the offline backup. */
+(function(){
+  var DB = 'https://verde-animation-25368-default-rtdb.firebaseio.com/prep';
+  var SUBJECT = 'anim';
+  function keyOf(name){
+    var slug = String(name||'').toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+    return SUBJECT + '__' + (slug || 'student');
+  }
+  /* Store progress as a JSON STRING — the progress object has keys like "s1.0"
+     (with a dot), which Firebase forbids as node names. A string sidesteps that. */
+  function cloudSave(name, data){
+    try {
+      fetch(DB + '/' + keyOf(name) + '.json', {
+        method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ name: name, data: JSON.stringify(data), updated: Date.now() })
+      }).catch(function(){});
+    } catch(e){}
+  }
+  function cloudLoad(name, cb){
+    try {
+      fetch(DB + '/' + keyOf(name) + '.json', {cache:'no-store'})
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(rec){
+          var d = null;
+          try { if (rec && rec.data) d = JSON.parse(rec.data); } catch(e){ d = null; }
+          cb(d);
+        })
+        .catch(function(){ cb(null); });
+    } catch(e){ cb(null); }
+  }
+  /* Never lose progress: combine local + cloud, keeping the furthest-along of each. */
+  function merge(a, b){
+    a = a || blank(); b = b || blank();
+    var m = blank();
+    m.passed = Object.assign({}, a.passed, b.passed);
+    m.seen   = Object.assign({}, a.seen,   b.seen);
+    m.best = {}; [a.best, b.best].forEach(function(o){ for (var k in o) m.best[k] = Math.max(m.best[k]||0, o[k]||0); });
+    m.attempts = {}; [a.attempts, b.attempts].forEach(function(o){ for (var k in o) m.attempts[k] = Math.max(m.attempts[k]||0, o[k]||0); });
+    m.started = Math.min(a.started||Date.now(), b.started||Date.now());
+    return m;
+  }
+  var _save = save;
+  save = function(){ _save.apply(this, arguments); if (student) cloudSave(student, P); };
+  var _begin = begin;
+  begin = function(name){
+    _begin.apply(this, arguments);
+    var who = student;
+    cloudLoad(who, function(cloudData){
+      if (!cloudData || student !== who) return;
+      P = merge(P, cloudData);
+      save();
+      if (view === 'map') renderMap();
+    });
+  };
+})();
+
 /* Last student on this device comes straight back in. */
 (function boot(){
   const all = load();
