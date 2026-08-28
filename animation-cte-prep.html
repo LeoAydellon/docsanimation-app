@@ -171,6 +171,7 @@
 </style>
 </head>
 <body>
+<script>window.__vclass=function(){try{var u=new URLSearchParams(location.search),c=u.get('c');if(c){localStorage.setItem('verde_class',c);return c;}return localStorage.getItem('verde_class')||'';}catch(e){return '';}};</script>
 
 <header>
   <div class="hrow">
@@ -749,7 +750,7 @@ $('switchBtn').onclick = () => {
   var SUBJECT = 'anim';
   function keyOf(name){
     var slug = String(name||'').toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
-    return SUBJECT + '__' + (slug || 'student');
+    return SUBJECT + '__' + ((window.__vclass&&window.__vclass())?window.__vclass()+'__':'') + (slug || 'student');
   }
   /* Store progress as a JSON STRING — the progress object has keys like "s1.0"
      (with a dot), which Firebase forbids as node names. A string sidesteps that. */
@@ -757,7 +758,7 @@ $('switchBtn').onclick = () => {
     try {
       fetch(DB + '/' + keyOf(name) + '.json', {
         method:'PUT', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ name: name, data: JSON.stringify(data), updated: Date.now() })
+        body: JSON.stringify({ name: name, data: JSON.stringify(data), class: window.__vclass(), updated: Date.now() })
       }).catch(function(){});
     } catch(e){}
   }
