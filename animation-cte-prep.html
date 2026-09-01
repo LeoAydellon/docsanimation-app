@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Animation CTE Prep — Verde Tech</title>
+<title>Animation CTE Prep — Verde Tech 1.1</title>
 <meta name="theme-color" content="#2f6b3f">
 <style>
   :root{
@@ -171,13 +171,15 @@
 </style>
 </head>
 <body>
+<script>(function(){try{var u=new URL(location.href);if(!u.searchParams.get('t')){u.searchParams.set('t',Date.now());location.replace(u.toString());}}catch(e){}})();</script>
+
 <script>window.__vclass=function(){try{var u=new URLSearchParams(location.search),c=u.get('c');if(c){localStorage.setItem('verde_class',c);return c;}return localStorage.getItem('verde_class')||'';}catch(e){return '';}};</script>
 
 <header>
   <div class="hrow">
     <button class="back hide" id="backBtn">‹ Back</button>
     <div style="flex:1;min-width:0">
-      <div class="htitle" id="hTitle">Animation CTE Prep</div>
+      <div class="htitle" id="hTitle">Animation CTE Prep <span id="appVerTop">1.1</span></div>
       <div class="hsub" id="hSub">Arizona Digital Animation · 10.0304.00</div>
     </div>
     <button class="who hide" id="whoBtn"></button>
@@ -422,7 +424,7 @@ function renderMap(){
 
   let h = '', group = -1;
   TRACK.forEach((t, i) => {
-    const k = keyOf(t), done = !!P.passed[k], locked = i > upto, next = i === upto;
+    const k = keyOf(t), done = !!P.passed[k], locked = false /* open-all: a student whose progress resets must still reach where they actually are */, next = i === upto;
     if (t.kind === 'std'){
       const g = Math.floor(t.idx / CK_EVERY);
       if (g !== group){
