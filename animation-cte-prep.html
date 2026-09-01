@@ -324,6 +324,7 @@ function needOf(t){ return t.kind==='tsa' ? BLUEPRINT.need : t.kind==='final' ? 
 function labelOf(t){ return t.kind==='tsa' ? BLUEPRINT.name.toUpperCase() : t.kind==='final' ? 'FINAL EXAM' : 'Checkpoint ' + t.ckNo; }
 
 /* ================= STATE ================= */
+const APP_VERSION = '1.1';   // bump with: node test/bump-version.js next
 const LS = 'animprep.v1';
 let student = '';
 let P = null;          // progress for the current student
