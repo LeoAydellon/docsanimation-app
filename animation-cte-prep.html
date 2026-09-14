@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Animation CTE Prep — Verde Tech 1.1</title>
+<title>Animation CTE Prep — Verde Tech 1.2</title>
 <meta name="theme-color" content="#2f6b3f">
 <style>
   :root{
@@ -60,6 +60,16 @@
     border-radius:99px;transition:width .5s cubic-bezier(.2,.7,.3,1)}
   .progtxt{display:flex;justify-content:space-between;margin-top:7px;font-size:13px;color:var(--dim)}
   .progtxt b{color:var(--ink)}
+  /* position marker — shows students exactly where they are: number + standard name */
+  .posbanner{background:var(--green-l,#eef5ef);border:1.5px solid var(--green,#3f7d52);
+    border-radius:14px;padding:12px 14px;margin:0 0 16px}
+  .posrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .posbadge{background:var(--green-d,#2c5a3b);color:#fff;font-weight:800;font-size:14px;
+    letter-spacing:.02em;border-radius:999px;padding:5px 13px;white-space:nowrap}
+  .posname{font-weight:700;font-size:15px;color:var(--green-d,#2c5a3b);flex:1;min-width:0}
+  .posbar{height:8px;background:#d7e5da;border-radius:99px;overflow:hidden;margin-top:10px}
+  .posfill{height:100%;background:linear-gradient(90deg,var(--green,#3f7d52),#57a06b);
+    border-radius:99px;transition:width .3s}
 
   .row{display:flex;align-items:center;gap:13px;width:100%;text-align:left;
     background:var(--card);border:1px solid var(--line);border-radius:14px;
@@ -179,7 +189,7 @@
   <div class="hrow">
     <button class="back hide" id="backBtn">‹ Back</button>
     <div style="flex:1;min-width:0">
-      <div class="htitle" id="hTitle">Animation CTE Prep <span id="appVerTop">1.1</span></div>
+      <div class="htitle" id="hTitle">Animation CTE Prep <span id="appVerTop">1.2</span></div>
       <div class="hsub" id="hSub">Arizona Digital Animation · 10.0304.00</div>
     </div>
     <button class="who hide" id="whoBtn"></button>
@@ -216,6 +226,7 @@
 
   <!-- ============ LESSON ============ -->
   <section id="lesson" class="hide">
+    <div class="posbanner" id="lesPos"></div>
     <div class="card">
       <div class="tiny" id="lesNum"></div>
       <h2 id="lesTitle" style="font-size:21px;margin:4px 0 14px"></h2>
@@ -231,6 +242,7 @@
 
   <!-- ============ TEST ============ -->
   <section id="test" class="hide">
+    <div class="posbanner" id="testPos"></div>
     <div class="qmeta">
       <span id="qCount"></span>
       <span class="pips" id="qPips"></span>
@@ -324,7 +336,7 @@ function needOf(t){ return t.kind==='tsa' ? BLUEPRINT.need : t.kind==='final' ? 
 function labelOf(t){ return t.kind==='tsa' ? BLUEPRINT.name.toUpperCase() : t.kind==='final' ? 'FINAL EXAM' : 'Checkpoint ' + t.ckNo; }
 
 /* ================= STATE ================= */
-const APP_VERSION = '1.1';   // bump with: node test/bump-version.js next
+const APP_VERSION = '1.2';   // bump with: node test/bump-version.js next
 const LS = 'animprep.v1';
 let student = '';
 let P = null;          // progress for the current student
@@ -345,8 +357,34 @@ function save(){
 
 /* ================= HELPERS ================= */
 const $ = id => document.getElementById(id);
+/* ===== position marker: tell the student exactly where they are (number + name) ===== */
+function stepPos(t){
+  var total = STANDARDS.length;
+  if(t.kind === 'std'){
+    var n = t.idx + 1;
+    return { badge:'Standard ' + n + ' of ' + total, name: STANDARDS[t.idx].title, pct: Math.round(n/total*100) };
+  }
+  if(t.kind === 'ck'){
+    var hi = Math.min(t.ckNo * CK_EVERY, total), lo = (t.ckNo - 1) * CK_EVERY + 1;
+    return { badge:'Checkpoint ' + t.ckNo, name:'Review \u00b7 Standards ' + lo + '\u2013' + hi, pct: Math.round(hi/total*100) };
+  }
+  if(t.kind === 'tsa')   return { badge:'Skills Assessment', name:(typeof BLUEPRINT!=='undefined' && BLUEPRINT ? BLUEPRINT.name : 'All standards'), pct:100 };
+  if(t.kind === 'final') return { badge:'Final Exam', name:'All ' + total + ' standards', pct:100 };
+  return { badge:'', name:'', pct:0 };
+}
+function renderPos(elId, t){
+  var el = $(elId); if(!el) return;
+  var p = stepPos(t);
+  if(!p.badge){ el.style.display='none'; return; }
+  el.style.display='';
+  el.innerHTML = '<div class="posrow"><span class="posbadge">' + esc(p.badge) + '</span>' +
+    (p.name ? '<span class="posname">' + esc(p.name) + '</span>' : '') + '</div>' +
+    '<div class="posbar"><div class="posfill" style="width:' + p.pct + '%"></div></div>';
+}
 function show(v){
   view = v;
+  try{ if(v==='lesson' && typeof pendingStep!=='undefined' && pendingStep) renderPos('lesPos', pendingStep);
+       else if(v==='test' && typeof session!=='undefined' && session && session.step) renderPos('testPos', session.step); }catch(_e){}
   ['gate','map','lesson','test','result','report'].forEach(s =>
     $(s).classList.toggle('hide', s !== v));
   $('backBtn').classList.toggle('hide', v === 'gate' || v === 'map');
