@@ -19,11 +19,11 @@
  * RUN
  *   node test/app-invariants.js            # checks the local file
  *   node test/app-invariants.js --live     # also checks the deployed site
- *   node test/app-invariants.js <file.html>  # checks a different build, e.g.
- *                                             a PREVIEW file not yet published
+ *   node test/app-invariants.js <file.html>  # checks a different build
  *                                             (PT100_* checks below only run
  *                                             when that build actually has the
- *                                             feature — see T15 guard)
+ *                                             feature — see T15 guard; as of
+ *                                             PB-0043 the live file has it)
  */
 
 const fs = require('fs');
@@ -249,16 +249,16 @@ check('T14 no leftover debugger or TODO-blocking marker ships', () => {
   return null;
 });
 
-/* ---------------------------------------- PB-0041: Practice Test (100) --
- * PREVIEW ONLY — this feature is deliberately NOT in the live student file
- * until Leo approves it, so these checks only assert anything when the
- * build being checked actually has FORM_100. Against the live file today
- * that means a skip, not a failure; against the preview build it is a full
- * check. */
+/* ---------------------------------------- PB-0041/PB-0042/PB-0043: Practice
+ * Test (100) -- published PB-0043, direct-link only (see T23/T24): these
+ * checks only assert anything when the build being checked actually has
+ * FORM_100, so a build that genuinely predates the feature still skips
+ * cleanly instead of failing. Against the live file as of v1.14 this is a
+ * full check, not a skip. */
 const FORM_100 = extractArray('FORM_100');
 
 if (!FORM_100) {
-  console.log('skip  T15-T20 Practice Test (100) checks — FORM_100 not in this build (expected before Leo approves PB-0041)');
+  console.log('skip  T15-T24 Practice Test (100) checks — FORM_100 not in this build');
 } else {
 
   check('T15 Practice Test (100) has exactly 100 items', () => {
@@ -328,6 +328,45 @@ if (!FORM_100) {
     if (!m) return 'PT100_PASS constant not found';
     if (Number(m[1]) !== 60) return `PT100_PASS is ${m[1]}, ticket's provisional value is 60`;
     if (!/provisional/i.test(m[2])) return 'PT100_PASS is not marked provisional in a trailing comment';
+    return null;
+  });
+
+  check('T22 Practice Test (100) header/results show the proposed-score wording (not "PREVIEW"/"provisional"); review answers are letter-prefixed', () => {
+    const bad = [];
+    const hSubM = src.match(/\$\('hSub'\)\.textContent\s*=\s*'Proposed[^;]*;/);
+    const subM = src.match(/\$\('pt100Sub'\)\.textContent\s*=\s*([^;]+);/);
+    if (!hSubM) bad.push('PT100 hSub assignment not found');
+    else {
+      if (!/Proposed classroom passing score/.test(hSubM[0])) bad.push('hSub missing "Proposed classroom passing score" wording');
+      if (/PREVIEW|provisional/i.test(hSubM[0])) bad.push('hSub still says "PREVIEW" or "provisional"');
+    }
+    if (!subM) bad.push('pt100Sub assignment not found');
+    else {
+      if (!/Proposed classroom passing score/.test(subM[1])) bad.push('pt100Sub missing "Proposed classroom passing score" wording');
+      if (!/official score/.test(subM[1]) || !/ADE/.test(subM[1])) bad.push('pt100Sub missing "not ADE\'s official score"');
+      if (/PREVIEW|provisional/i.test(subM[1])) bad.push('pt100Sub still says "PREVIEW" or "provisional"');
+    }
+    if (!src.includes("'ABCD'[it.answer] + '&#41; '")) bad.push('review list does not prefix each answer with its letter (e.g. "C) ...")');
+    return bad.length ? bad.join('; ') : null;
+  });
+
+  check('T23 Practice Test (100) main-menu button is gated behind PT100_IN_MENU, which starts false', () => {
+    const m = src.match(/const PT100_IN_MENU\s*=\s*(true|false)\s*;/);
+    if (!m) return 'PT100_IN_MENU constant not found';
+    if (m[1] !== 'false') return `PT100_IN_MENU is ${m[1]} — PB-0043 requires it start false until Leo approves the menu`;
+    if (!/classList\.toggle\('hide',\s*!PT100_IN_MENU\)/.test(src))
+      return 'pt100Btn visibility is not wired to PT100_IN_MENU — the menu button could show regardless of the flag';
+    const tagM = src.match(/<button[^>]*id="pt100Btn"[^>]*>/);
+    if (!tagM || !/\bhide\b/.test(tagM[0]))
+      return 'pt100Btn does not start with the hide class in the markup — it would flash visible before JS runs';
+    return null;
+  });
+
+  check('T24 the ?test=pt100 deep link opens Practice Test (100) right after name entry, independent of the menu gate', () => {
+    if (!/get\('test'\)\s*===\s*'pt100'/.test(src)) return 'no ?test=pt100 query-string check found';
+    const beginWrap = src.match(/begin\s*=\s*function\s*\(name\)\s*\{[^}]*\}/s);
+    if (!beginWrap || !/startPt100\(\)/.test(beginWrap[0]))
+      return 'the ?test=pt100 check does not call startPt100() from inside a wrapped begin() — deep link would not fire after name entry';
     return null;
   });
 
