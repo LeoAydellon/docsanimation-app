@@ -19,12 +19,18 @@
  * RUN
  *   node test/app-invariants.js            # checks the local file
  *   node test/app-invariants.js --live     # also checks the deployed site
+ *   node test/app-invariants.js <file.html>  # checks a different build, e.g.
+ *                                             a PREVIEW file not yet published
+ *                                             (PT100_* checks below only run
+ *                                             when that build actually has the
+ *                                             feature — see T15 guard)
  */
 
 const fs = require('fs');
 const path = require('path');
 
-const APP = path.join(__dirname, '..', 'animation-cte-prep.html');
+const fileArg = process.argv.slice(2).find(a => a.endsWith('.html'));
+const APP = fileArg ? path.resolve(fileArg) : path.join(__dirname, '..', 'animation-cte-prep.html');
 const LIVE = 'https://leoaydellon.github.io/docsanimation-app/animation-cte-prep.html';
 
 let pass = 0, fail = 0;
@@ -60,6 +66,28 @@ function extractArray(name) {
     if (c === '"' || c === "'" || c === '`') { inStr = true; quote = c; continue; }
     if (c === '[') depth++;
     else if (c === ']') { depth--; if (depth === 0) return eval(src.slice(open, i + 1)); }
+  }
+  return null;
+}
+
+/* Pull a top-level `function NAME(...){...}` out of the source and return it
+ * as a callable. Same brace-counting approach as extractArray, for the same
+ * reason (the function bodies contain strings with braces in them). */
+function extractFunction(name) {
+  const m = src.match(new RegExp('function\\s+' + name + '\\s*\\('));
+  if (!m) return null;
+  const start = m.index;
+  const open = src.indexOf('{', start);
+  if (open < 0) return null;
+  let depth = 0, inStr = false, quote = '', esc = false;
+  for (let i = open; i < src.length; i++) {
+    const c = src[i];
+    if (esc) { esc = false; continue; }
+    if (c === '\\') { esc = true; continue; }
+    if (inStr) { if (c === quote) inStr = false; continue; }
+    if (c === '"' || c === "'" || c === '`') { inStr = true; quote = c; continue; }
+    if (c === '{') depth++;
+    else if (c === '}') { depth--; if (depth === 0) return eval('(' + src.slice(start, i + 1) + ')'); }
   }
   return null;
 }
@@ -220,6 +248,90 @@ check('T14 no leftover debugger or TODO-blocking marker ships', () => {
   if (/\bdebugger\b/.test(src)) return 'a `debugger` statement would freeze the app for students';
   return null;
 });
+
+/* ---------------------------------------- PB-0041: Practice Test (100) --
+ * PREVIEW ONLY — this feature is deliberately NOT in the live student file
+ * until Leo approves it, so these checks only assert anything when the
+ * build being checked actually has FORM_100. Against the live file today
+ * that means a skip, not a failure; against the preview build it is a full
+ * check. */
+const FORM_100 = extractArray('FORM_100');
+
+if (!FORM_100) {
+  console.log('skip  T15-T20 Practice Test (100) checks — FORM_100 not in this build (expected before Leo approves PB-0041)');
+} else {
+
+  check('T15 Practice Test (100) has exactly 100 items', () => {
+    return FORM_100.length === 100 ? null : `FORM_100 has ${FORM_100.length} items, expected 100`;
+  });
+
+  check('T16 Practice Test (100) per-standard counts match the blueprint allocation', () => {
+    const want = { '1.0':4, '2.0':1, '3.0':2, '4.0':15, '5.0':17, '6.0':20, '7.0':17, '8.0':10, '9.0':7, '10.0':3, '11.0':4 };
+    const got = {};
+    FORM_100.forEach(it => { got[it.std] = (got[it.std] || 0) + 1; });
+    const bad = [];
+    for (const std of Object.keys(want)) if (got[std] !== want[std]) bad.push(`${std}: want ${want[std]}, got ${got[std] || 0}`);
+    for (const std of Object.keys(got)) if (!(std in want)) bad.push(`unexpected standard ${std} (${got[std]} items)`);
+    return bad.length ? bad.join('; ') : null;
+  });
+
+  check('T17 every Practice Test (100) item has 4 non-empty options and a valid answer', () => {
+    const bad = [];
+    FORM_100.forEach(it => {
+      if (!Array.isArray(it.options) || it.options.length !== 4) { bad.push(`${it.id}: ${it.options ? it.options.length : 0} options`); return; }
+      if (it.options.some(o => !String(o || '').trim())) bad.push(`${it.id}: empty option`);
+      if (!(Number.isInteger(it.answer) && it.answer >= 0 && it.answer <= 3)) bad.push(`${it.id}: answer=${it.answer}`);
+    });
+    return bad.length ? bad.slice(0, 8).join('; ') : null;
+  });
+
+  check('T18 Practice Test (100) is byte-for-byte equivalent to FORM-100-v1.json (q/options/answer)', () => {
+    const fixturePath = path.join(__dirname, 'fixtures', 'FORM-100-v1.json');
+    if (!fs.existsSync(fixturePath)) return 'fixtures/FORM-100-v1.json is missing — cannot verify against the source form';
+    const canon = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
+    if (canon.length !== FORM_100.length) return `fixture has ${canon.length} items, build has ${FORM_100.length}`;
+    const shape = arr => arr.map(it => ({ n: it.n, id: it.id, q: it.q, options: it.options, answer: it.answer }));
+    const a = JSON.stringify(shape(canon.slice().sort((x, y) => x.n - y.n)));
+    const b = JSON.stringify(shape(FORM_100.slice().sort((x, y) => x.n - y.n)));
+    const crypto = require('crypto');
+    const ha = crypto.createHash('sha256').update(a).digest('hex').slice(0, 16);
+    const hb = crypto.createHash('sha256').update(b).digest('hex').slice(0, 16);
+    console.log('      fixture checksum: ' + ha + '   build checksum: ' + hb);
+    return a === b ? null : 'q/options/answer differ from the canonical FORM-100-v1.json';
+  });
+
+  check('T19 Practice Test (100) scoring returns the right totals (all-correct / all-wrong / mixed)', () => {
+    const pt100Score = extractFunction('pt100Score');
+    if (!pt100Score) return 'pt100Score() not found in the build';
+    const n = FORM_100.length;
+    const allCorrect = new Array(n).fill(true);
+    const allWrong = new Array(n).fill(false);
+    const mixed = new Array(n).fill(false).map((_, i) => i < 63); // 63 correct, by construction
+    const bad = [];
+    if (pt100Score(allCorrect) !== n) bad.push(`all-correct scored ${pt100Score(allCorrect)}, want ${n}`);
+    if (pt100Score(allWrong) !== 0) bad.push(`all-wrong scored ${pt100Score(allWrong)}, want 0`);
+    if (pt100Score(mixed) !== 63) bad.push(`mixed scored ${pt100Score(mixed)}, want 63`);
+    return bad.length ? bad.join('; ') : null;
+  });
+
+  check('T20 Practice Test (100) reaches a completion state after item 100', () => {
+    const pt100IsDone = extractFunction('pt100IsDone');
+    if (!pt100IsDone) return 'pt100IsDone() not found in the build';
+    const n = FORM_100.length;
+    if (pt100IsDone(n - 1, n)) return `pt100IsDone(${n - 1}, ${n}) is true — flags complete one question early`;
+    if (!pt100IsDone(n, n)) return `pt100IsDone(${n}, ${n}) is false — never reaches completion`;
+    return null;
+  });
+
+  check('T21 Practice Test (100) pass mark is one named, provisional constant', () => {
+    const m = src.match(/const PT100_PASS\s*=\s*(\d+)\s*;([^\n]*)/);
+    if (!m) return 'PT100_PASS constant not found';
+    if (Number(m[1]) !== 60) return `PT100_PASS is ${m[1]}, ticket's provisional value is 60`;
+    if (!/provisional/i.test(m[2])) return 'PT100_PASS is not marked provisional in a trailing comment';
+    return null;
+  });
+
+}
 
 /* ------------------------------------------------------------- live check */
 

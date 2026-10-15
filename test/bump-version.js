@@ -11,11 +11,17 @@
  *   node test/bump-version.js          # show the current version
  *   node test/bump-version.js 1.1      # set it to 1.1 everywhere
  *   node test/bump-version.js next     # 1.0 -> 1.1 automatically
+ *   node test/bump-version.js next <file.html>   # same, on a different build
+ *                                                   (e.g. an unpublished PREVIEW
+ *                                                   file — the live file is the
+ *                                                   default and is untouched
+ *                                                   unless named explicitly)
  */
 
 const fs = require('fs');
 const path = require('path');
-const APP = path.join(__dirname, '..', 'animation-cte-prep.html');
+const fileArg = process.argv[3];
+const APP = fileArg ? path.resolve(fileArg) : path.join(__dirname, '..', 'animation-cte-prep.html');
 
 const RX = {
   title:  /<title>Animation CTE Prep — Verde Tech ([0-9]+\.[0-9]+)<\/title>/,
