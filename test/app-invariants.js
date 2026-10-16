@@ -323,11 +323,10 @@ if (!FORM_100) {
     return null;
   });
 
-  check('T21 Practice Test (100) pass mark is one named, provisional constant', () => {
-    const m = src.match(/const PT100_PASS\s*=\s*(\d+)\s*;([^\n]*)/);
+  check('T21 Practice Test (100) pass mark is 95 (Leo\'s approved classroom score, PB-0047)', () => {
+    const m = src.match(/const PT100_PASS\s*=\s*(\d+)\s*;/);
     if (!m) return 'PT100_PASS constant not found';
-    if (Number(m[1]) !== 60) return `PT100_PASS is ${m[1]}, ticket's provisional value is 60`;
-    if (!/provisional/i.test(m[2])) return 'PT100_PASS is not marked provisional in a trailing comment';
+    if (Number(m[1]) !== 95) return `PT100_PASS is ${m[1]}, expected 95`;
     return null;
   });
 
@@ -367,6 +366,56 @@ if (!FORM_100) {
     const beginWrap = src.match(/begin\s*=\s*function\s*\(name\)\s*\{[^}]*\}/s);
     if (!beginWrap || !/startPt100\(\)/.test(beginWrap[0]))
       return 'the ?test=pt100 check does not call startPt100() from inside a wrapped begin() — deep link would not fire after name entry';
+    return null;
+  });
+
+  /* -------------------------------------------- PB-0047: PT100 results contract
+   * Matches Pam-Office/docs/records/animation-test/PT100-RESULTS-CONTRACT.md.
+   * Request interception only, by design — these tests must never touch the
+   * real Firebase DB. The real-DB end-to-end check is a separate, one-time
+   * manual step against ZZ-prefixed test students. */
+
+  check('T25 pt100ResultKey() builds the contract key: anim__<class>__<slug>, or anim__<slug> when blank', () => {
+    const pt100ResultKey = extractFunction('pt100ResultKey');
+    if (!pt100ResultKey) return 'pt100ResultKey() not found in the build';
+    const a = pt100ResultKey('ZZ Pam Test One', 'anim3-p4');
+    if (a !== 'anim__anim3-p4__zz-pam-test-one') return `with a class tag, got "${a}"`;
+    const b = pt100ResultKey('ZZ Pam Test Two', '');
+    if (b !== 'anim__zz-pam-test-two') return `with a blank class tag, got "${b}"`;
+    return null;
+  });
+
+  check('T26 pt100BuildRecord() matches the contract shape and the 95-mark pass/fail boundary', () => {
+    const pt100BuildRecord = extractFunction('pt100BuildRecord');
+    if (!pt100BuildRecord) return 'pt100BuildRecord() not found in the build';
+    const byDomain = [{ name: 'Domain A', right: 10, n: 10 }];
+    const byStd = [{ name: '4.0', right: 10, n: 10 }];
+    const pass = pt100BuildRecord(null, 'ZZ Pam Test One', 'anim3-p4', 95, 100, 95, '1.15', byDomain, byStd);
+    if (pass.latest.pass !== true) return '95/100 against a 95 pass mark did not score as a pass';
+    if (pass.attempts !== 1) return `attempts should start at 1 on a fresh node, got ${pass.attempts}`;
+    if (pass.form !== 'FORM-100-v1') return `form should be "FORM-100-v1", got "${pass.form}"`;
+    if (JSON.stringify(pass.latest.byDomain) !== JSON.stringify({ 'Domain A': [10, 10] }))
+      return 'byDomain is not the contract\'s {"<domain>": [right, total]} shape';
+    const notYet = pt100BuildRecord(null, 'ZZ Pam Test Two', 'anim-p6', 94, 100, 95, '1.15', byDomain, byStd);
+    if (notYet.latest.pass !== false) return '94/100 against a 95 pass mark scored as a pass';
+    const again = pt100BuildRecord(pass, 'ZZ Pam Test One', 'anim3-p4', 90, 100, 95, '1.15', byDomain, byStd);
+    if (again.attempts !== 2) return `attempts should increment to 2 on a second completion, got ${again.attempts}`;
+    if (again.best.score !== 95) return `best should keep the higher prior score (95), got ${again.best.score}`;
+    return null;
+  });
+
+  check('T27 the PT100 results write targets only /pt100, never /prep', () => {
+    const m = src.match(/\(function\(\)\{\s*var PT100_RESULTS_DB[\s\S]*?window\.__pt100SaveResult = pt100SaveResult;\s*\}\)\(\);/);
+    if (!m) return 'the PT100 results-write IIFE was not found';
+    if (!/\/pt100['"]/.test(m[0])) return 'PT100_RESULTS_DB does not point at /pt100';
+    if (/\/prep/.test(m[0])) return 'the PT100 results-write code references /prep — it must never write there';
+    return null;
+  });
+
+  check('T28 pt100Finish() calls the PT100 results write, so it is wired and not dead code', () => {
+    const finishFn = src.match(/function pt100Finish\s*\([^)]*\)\s*\{[\s\S]*?\n\}/);
+    if (!finishFn) return 'pt100Finish() not found';
+    if (!/__pt100SaveResult\(/.test(finishFn[0])) return 'pt100Finish() never calls window.__pt100SaveResult(...)';
     return null;
   });
 
