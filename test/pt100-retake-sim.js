@@ -75,15 +75,22 @@ const PT100_POOL = extractArray('PT100_POOL');
 const PT100_NEED = extractObject('PT100_NEED');
 const PT100_STD_ORDER = extractArray('PT100_STD_ORDER');
 const PT100_PAIR_EXCLUSIONS = extractArray('PT100_PAIR_EXCLUSIONS');
+const PT100_SELECTION_EXCLUDED_IDS = extractArray('PT100_SELECTION_EXCLUDED_IDS');
 const pt100PoolByStd = extractFunction('pt100PoolByStd');
 const pt100Shuffle = extractFunction('pt100Shuffle');
 const pt100SelectForStd = extractFunction('pt100SelectForStd');
 const pt100BuildRecord = extractFunction('pt100BuildRecord');
 
-if (!PT100_POOL || !PT100_NEED || !pt100PoolByStd || !pt100Shuffle || !pt100SelectForStd || !pt100BuildRecord) {
+if (!PT100_POOL || !PT100_NEED || !pt100PoolByStd || !pt100Shuffle || !pt100SelectForStd || !pt100BuildRecord || !PT100_SELECTION_EXCLUDED_IDS) {
   console.error('could not extract the retake engine from ' + APP + ' -- has it changed shape?');
   process.exit(2);
 }
+// PB-0061: mirrors the app's real call site -- startPt100() draws from
+// PT100_SELECTABLE_POOL (PT100_POOL minus PT100_SELECTION_EXCLUDED_IDS), not
+// the raw PT100_POOL, so 11.0-10 (a reworded duplicate of 3.0-01) is never
+// drawn into a new attempt again. PT100_POOL itself stays untouched so old
+// history entries that already contain it still render.
+const PT100_SELECTABLE_POOL = PT100_POOL.filter(it => PT100_SELECTION_EXCLUDED_IDS.indexOf(it.id) === -1);
 const idToStd = {};
 PT100_POOL.forEach(it => { idToStd[it.id] = it.std; });
 function pt100ItemStd(item) { return idToStd[item.id] || null; }
@@ -156,13 +163,14 @@ let attemptN = 0;
 const overlaps = [];
 const drawCount = {};
 let failures = 0;
+let excludedDrawnCount = 0; // PB-0061 acceptance metric: must stay 0
 let cloudRecord = null; // simulated cloud write, same shape pt100SaveResult() PUTs
 
 console.log(`--- PT100 retake simulation: ${N} consecutive attempts, seed ${SEED}\n`);
 
 for (let a = 0; a < N; a++) {
   attemptN++;
-  const items = pt100MakeAttemptItems(PT100_POOL, prevIds, usage, rng);
+  const items = pt100MakeAttemptItems(PT100_SELECTABLE_POOL, prevIds, usage, rng);
   const ids = new Set();
   const counts = {};
   let ok = true;
@@ -172,6 +180,7 @@ for (let a = 0; a < N; a++) {
     if (ids.has(it.id)) { console.log(`FAIL attempt ${a + 1}: duplicate item ${it.id}`); ok = false; }
     ids.add(it.id);
     if (!poolIds.has(it.id)) { console.log(`FAIL attempt ${a + 1}: item not from POOL-v2: ${it.id}`); ok = false; }
+    if (PT100_SELECTION_EXCLUDED_IDS.indexOf(it.id) >= 0) { console.log(`FAIL attempt ${a + 1}: selected excluded id ${it.id}`); excludedDrawnCount++; ok = false; }
     drawCount[it.id] = (drawCount[it.id] || 0) + 1;
     const std = byId[it.id] ? byId[it.id].std : '?';
     counts[std] = (counts[std] || 0) + 1;
@@ -245,6 +254,7 @@ const distinctDrawn = Object.keys(drawCount).length;
 console.log(`\nattempts checked: ${N}`);
 console.log(`failures: ${failures}`);
 console.log(`consecutive-attempt overlap -- min: ${overlaps.length ? Math.min(...overlaps) : 'n/a'}  max: ${overlaps.length ? Math.max(...overlaps) : 'n/a'}  (spec: 0 shared, every time)`);
+console.log(`PB-0061: excluded id(s) ${JSON.stringify(PT100_SELECTION_EXCLUDED_IDS)} selected ${excludedDrawnCount} time(s) across all attempts (spec: 0)`);
 console.log(`fallback-to-prefer-unused events: ${fallbackLog.length}` + (fallbackLog.length ? ' -- ' + JSON.stringify(fallbackLog) : ' (expected: 0, every standard pool is >= 2x its need)'));
 console.log(`distinct POOL-v2 items drawn across all attempts: ${distinctDrawn} of ${PT100_POOL.length}`);
 console.log(`final simulated cloud record: attempts=${cloudRecord.attempts}, history.length=${cloudRecord.history.length}`);

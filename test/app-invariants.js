@@ -748,6 +748,29 @@ if (!FORM_100) {
       return null;
     });
 
+    check('T39c PB-0061: 11.0-10 is excluded from SELECTION but stays in PT100_POOL (old history entries that used it still render)', () => {
+      const PT100_SELECTION_EXCLUDED_IDS = extractArray('PT100_SELECTION_EXCLUDED_IDS');
+      if (!PT100_SELECTION_EXCLUDED_IDS) return 'PT100_SELECTION_EXCLUDED_IDS not found in the build';
+      if (PT100_SELECTION_EXCLUDED_IDS.indexOf('11.0-10') === -1) return '11.0-10 is missing from PT100_SELECTION_EXCLUDED_IDS';
+      if (!PT100_POOL.some(it => it.id === '11.0-10')) return '11.0-10 is missing from PT100_POOL -- it must stay so old history/review/gradebook still renders';
+      return null;
+    });
+
+    check('T39d PB-0061: the real retake call site draws from PT100_SELECTABLE_POOL, not the raw PT100_POOL', () => {
+      const startFn = src.match(/function startPt100\s*\(\s*\)\s*\{[\s\S]*?\n\}/);
+      if (!startFn) return 'startPt100() not found';
+      if (!/pt100MakeAttemptItems\(\s*PT100_SELECTABLE_POOL\s*,/.test(startFn[0])) return 'startPt100() does not call pt100MakeAttemptItems(PT100_SELECTABLE_POOL, ...) -- a new attempt could still draw 11.0-10';
+      const PT100_SELECTION_EXCLUDED_IDS = extractArray('PT100_SELECTION_EXCLUDED_IDS');
+      if (!PT100_SELECTION_EXCLUDED_IDS) return 'PT100_SELECTION_EXCLUDED_IDS not found in the build';
+      const selectable = PT100_POOL.filter(it => PT100_SELECTION_EXCLUDED_IDS.indexOf(it.id) === -1);
+      if (selectable.some(it => it.id === '11.0-10')) return 'PT100_SELECTABLE_POOL still contains 11.0-10';
+      if (selectable.length !== PT100_POOL.length - PT100_SELECTION_EXCLUDED_IDS.length) return `PT100_SELECTABLE_POOL has ${selectable.length} items, expected PT100_POOL.length (${PT100_POOL.length}) minus ${PT100_SELECTION_EXCLUDED_IDS.length} excluded`;
+      const have11 = selectable.filter(it => it.std === '11.0').length;
+      const PT100_NEED = extractObject('PT100_NEED');
+      if (have11 < PT100_NEED['11.0']) return `after excluding 11.0-10, std 11.0 has only ${have11} selectable items, need ${PT100_NEED['11.0']}`;
+      return null;
+    });
+
     check('T40 pt100BuildRecord() contract v3: adds pool+items to latest/best when given, omits them (v2 shape) when not', () => {
       const pt100BuildRecord = extractFunction('pt100BuildRecord');
       if (!pt100BuildRecord) return 'pt100BuildRecord() not found';

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Animation CTE Prep — Verde Tech 1.22</title>
+<title>Animation CTE Prep — Verde Tech 1.23</title>
 <meta name="theme-color" content="#2f6b3f">
 <style>
   :root{
@@ -189,7 +189,7 @@
   <div class="hrow">
     <button class="back hide" id="backBtn">‹ Back</button>
     <div style="flex:1;min-width:0">
-      <div class="htitle" id="hTitle">Animation CTE Prep <span id="appVerTop">1.22</span></div>
+      <div class="htitle" id="hTitle">Animation CTE Prep <span id="appVerTop">1.23</span></div>
       <div class="hsub" id="hSub">Arizona Digital Animation · 10.0304.00</div>
     </div>
     <button class="who hide" id="whoBtn"></button>
@@ -398,6 +398,17 @@ const PT100_POOL_BY_ID = (function(){
 const PT100_NEED = {'1.0':4,'2.0':1,'3.0':2,'4.0':15,'5.0':17,'6.0':20,'7.0':17,'8.0':10,'9.0':7,'10.0':3,'11.0':4};
 const PT100_STD_ORDER = ['1.0','2.0','3.0','4.0','5.0','6.0','7.0','8.0','9.0','10.0','11.0'];
 const PT100_PAIR_EXCLUSIONS = [['3.0-01','11.0-10'],['3.0-01','N5-15']];
+/* PB-0061: 11.0-10 ("What is an animatic?") is a reworded duplicate of 3.0-01
+   ("A director asks to see the animatic... what are they asking for?"). The
+   PT100_PAIR_EXCLUSIONS entry above only kept the two out of the SAME
+   attempt; a 2,000-attempt sim on v1.22 still hit 157 consecutive-attempt
+   pairs with one in attempt n and the other in n+1, since they are
+   different ids. Excluding 11.0-10 here (SELECTION only) removes it from
+   every future draw; it stays in PT100_POOL/PT100_POOL_BY_ID so existing
+   history entries that already contain it still render in review/gradebook.
+   The [3.0-01, 11.0-10] pair exclusion above is now moot but harmless. */
+const PT100_SELECTION_EXCLUDED_IDS = ['11.0-10'];
+const PT100_SELECTABLE_POOL = PT100_POOL.filter(function(it){ return PT100_SELECTION_EXCLUDED_IDS.indexOf(it.id) === -1; });
 const PT100_CLUSTER_EXCLUSIONS = [['10.0-05','10.0-06','10.0-11'],['10.0-02','10.0-03','10.0-07','10.0-13']];
 const PT100_DOMAIN_DEFS = BLUEPRINT.domains.map(function(d){ return { name: d.name, share: d.share, standards: d.standards }; });
 const PT100_STD_DEFS = (function(){
@@ -663,7 +674,7 @@ function needOf(t){ return t.kind==='tsa' ? BLUEPRINT.need : t.kind==='final' ? 
 function labelOf(t){ return t.kind==='tsa' ? BLUEPRINT.name.toUpperCase() : t.kind==='final' ? 'FINAL EXAM' : 'Checkpoint ' + t.ckNo; }
 
 /* ================= STATE ================= */
-const APP_VERSION = '1.22';   // bump with: node test/bump-version.js next
+const APP_VERSION = '1.23';   // bump with: node test/bump-version.js next
 const LS = 'animprep.v1';
 let student = '';
 let P = null;          // progress for the current student
@@ -1196,7 +1207,7 @@ function startPt100(){
     const hist = (saved && saved.hist) || { usage: {}, lastIds: [], attemptN: 0 };
     const attemptN = hist.attemptN + 1;
     const prevIds = new Set(hist.lastIds || []);
-    const items = pt100MakeAttemptItems(PT100_POOL, prevIds, hist.usage || {}, Math.random);
+    const items = pt100MakeAttemptItems(PT100_SELECTABLE_POOL, prevIds, hist.usage || {}, Math.random);
     const newUsage = Object.assign({}, hist.usage);
     items.forEach(it => { newUsage[it.id] = attemptN; });
     state = {
