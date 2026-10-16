@@ -41,7 +41,7 @@
    "It provides 10 hours of training on recognizing and avoiding workplace safety hazards"
   ],
   "answer": 3,
-  "why": "OSHA 10 is a 10-hour safety training program from the Occupational Safety and Health Administration that teaches workers to recognize, avoid, and report workplace hazards.",
+  "why": "OSHA's Outreach Training Program offers a voluntary 10-hour course, taught by OSHA-authorized trainers, on recognizing, avoiding, and preventing workplace safety and health hazards. Students receive a completion card; it is not a certification or license.",
   "src": "FORM-100-v1"
  },
  {
@@ -56,7 +56,7 @@
    "It sets the workplace safety rules studios follow for equipment, lighting, and long work hours at the desk"
   ],
   "answer": 1,
-  "why": "The ADA is a civil-rights law requiring accessibility; for media professionals that means accessible workplaces and a strong push toward accessible content like captioning and legible design.",
+  "why": "The ADA is a civil-rights law that prohibits discrimination against people with disabilities, including in employment and in businesses open to the public; for media professionals that means accessible workplaces and accessible content such as captions and readable design.",
   "src": "FORM-100-v1"
  },
  {
@@ -1769,7 +1769,7 @@
    "The studio, because employee creations are typically works made for hire"
   ],
   "answer": 3,
-  "why": "Under U.S. work-made-for-hire rules, work created by an employee within the scope of their job is owned by the employer unless a contract says otherwise.",
+  "why": "Under U.S. work-made-for-hire rules, the employer is considered the author of work an employee creates within the scope of the job, unless both parties sign a written agreement saying otherwise.",
   "src": "bank-v1.13 + distractors revised 2026-10-16",
   "options_original": [
    "The animator who personally drew the characters, in every single case",
@@ -1786,11 +1786,11 @@
   "options": [
    "Any image that happens to appear in an online image search",
    "A work whose copyright has expired and entered the public domain",
-   "Any older work that does not clearly display a copyright symbol",
+   "Any recent work that does not display a copyright symbol",
    "Any finished artwork someone posted publicly on their social media"
   ],
   "answer": 1,
-  "why": "Public-domain works are no longer under copyright, so anyone may use them freely; search results, unmarked works, and social posts are usually still protected.",
+  "why": "Public-domain works are no longer under copyright, so anyone may use them freely. A copyright notice has been optional since March 1, 1989, so recent works without a © symbol are still protected, as are search results and social posts.",
   "src": "bank-v1.13"
  },
  {
@@ -1892,7 +1892,7 @@
    "Because registration formally transfers ownership of the work to the government for safekeeping"
   ],
   "answer": 2,
-  "why": "For U.S. works, registration is a prerequisite to suing for infringement and makes remedies like statutory damages available, so professionals register valuable work.",
+  "why": "For U.S. works, registration (or preregistration) is required before suing for infringement, and timely registration makes statutory damages and attorney's fees available, so professionals register valuable work.",
   "src": "bank-v1.13 + distractors revised 2026-10-16",
   "options_original": [
    "Because all unregistered creative works completely lose their legal protection after just one year",
