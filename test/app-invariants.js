@@ -369,8 +369,10 @@ if (!FORM_100) {
     return null;
   });
 
-  /* -------------------------------------------- PB-0047: PT100 results contract
-   * Matches Pam-Office/docs/records/animation-test/PT100-RESULTS-CONTRACT.md.
+  /* -------------------------------------------- PB-0050: PT100 results contract v2
+   * Matches Pam-Office/docs/records/animation-test/PT100-RESULTS-CONTRACT.md
+   * (v2 — writes to /submissions/pt100-anim, the already-allowed node;
+   * /pt100 itself is rejected by the DB rules, no rules change was made).
    * Request interception only, by design — these tests must never touch the
    * real Firebase DB. The real-DB end-to-end check is a separate, one-time
    * manual step against ZZ-prefixed test students. */
@@ -404,10 +406,10 @@ if (!FORM_100) {
     return null;
   });
 
-  check('T27 the PT100 results write targets only /pt100, never /prep', () => {
+  check('T27 the PT100 results write targets only /submissions/pt100-anim, never /prep', () => {
     const m = src.match(/\(function\(\)\{\s*var PT100_RESULTS_DB[\s\S]*?window\.__pt100SaveResult = pt100SaveResult;\s*\}\)\(\);/);
     if (!m) return 'the PT100 results-write IIFE was not found';
-    if (!/\/pt100['"]/.test(m[0])) return 'PT100_RESULTS_DB does not point at /pt100';
+    if (!/\/submissions\/pt100-anim['"]/.test(m[0])) return 'PT100_RESULTS_DB does not point at /submissions/pt100-anim';
     if (/\/prep/.test(m[0])) return 'the PT100 results-write code references /prep — it must never write there';
     return null;
   });

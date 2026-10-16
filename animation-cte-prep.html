@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Animation CTE Prep — Verde Tech 1.15</title>
+<title>Animation CTE Prep — Verde Tech 1.16</title>
 <meta name="theme-color" content="#2f6b3f">
 <style>
   :root{
@@ -189,7 +189,7 @@
   <div class="hrow">
     <button class="back hide" id="backBtn">‹ Back</button>
     <div style="flex:1;min-width:0">
-      <div class="htitle" id="hTitle">Animation CTE Prep <span id="appVerTop">1.15</span></div>
+      <div class="htitle" id="hTitle">Animation CTE Prep <span id="appVerTop">1.16</span></div>
       <div class="hsub" id="hSub">Arizona Digital Animation · 10.0304.00</div>
     </div>
     <button class="who hide" id="whoBtn"></button>
@@ -381,10 +381,12 @@ function pt100ByGroup(marks, groups){
   });
 }
 
-/* ============ PT100 RESULTS — gradebook contract (PB-0047) ============
+/* ============ PT100 RESULTS — gradebook contract (PB-0050, v2) ============
    Contract: Pam-Office/docs/records/animation-test/PT100-RESULTS-CONTRACT.md
-   Writes ONLY to the Firebase node /pt100/<key> — a node separate from
-   /prep. This mode's completion write must never touch /prep; the
+   Writes ONLY to the Firebase node /submissions/pt100-anim/<key> — the
+   existing already-allowed /submissions node, kept separate from /prep
+   (rules reject /pt100 directly, so this avoids any rules change). This
+   mode's completion write must never touch /prep; the
    existing P.passed/best/attempts['pt100'] bookkeeping (synced to /prep by
    the generic save() below, same as every other mode) is unrelated and
    untouched by this contract. Pure helpers kept standalone so tests can
@@ -412,7 +414,7 @@ function pt100BuildRecord(existing, name, cls, right, total, passMark, appVersio
   };
 }
 (function(){
-  var PT100_RESULTS_DB = 'https://verde-animation-25368-default-rtdb.firebaseio.com/pt100';
+  var PT100_RESULTS_DB = 'https://verde-animation-25368-default-rtdb.firebaseio.com/submissions/pt100-anim';
   function pt100SaveResult(name, cls, right, total, byDomain, byStd){
     try {
       var url = PT100_RESULTS_DB + '/' + pt100ResultKey(name, cls) + '.json';
@@ -461,7 +463,7 @@ function needOf(t){ return t.kind==='tsa' ? BLUEPRINT.need : t.kind==='final' ? 
 function labelOf(t){ return t.kind==='tsa' ? BLUEPRINT.name.toUpperCase() : t.kind==='final' ? 'FINAL EXAM' : 'Checkpoint ' + t.ckNo; }
 
 /* ================= STATE ================= */
-const APP_VERSION = '1.15';   // bump with: node test/bump-version.js next
+const APP_VERSION = '1.16';   // bump with: node test/bump-version.js next
 const LS = 'animprep.v1';
 let student = '';
 let P = null;          // progress for the current student
