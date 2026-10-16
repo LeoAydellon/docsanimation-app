@@ -560,30 +560,34 @@ if (!FORM_100) {
     return null;
   });
 
-  /* -------------------------------------------- PB-0052: v1.18 changing retakes
-   * RETAKE-SPEC-v1.md: a fresh, blueprint-weighted 100-item attempt from
-   * PT100_POOL (165 items, POOL-v1) on every retake, shuffled order+choices,
-   * saved per-attempt, full post-attempt review. The 200-attempt simulation
+  /* -------------------------------------------- PB-0055: v1.19 zero-overlap retakes
+   * RETAKE-SPEC-v2.md: a fresh, blueprint-weighted 100-item attempt from
+   * PT100_POOL (242 items, POOL-v2) on every retake, shuffled order+choices,
+   * saved per-attempt, full post-attempt review -- and now a HARD rule that
+   * attempt n+1 shares NO item with attempt n. The 300-attempt simulation
    * these checks only sample from lives in test/pt100-retake-sim.js (its
    * output is the pasted acceptance artifact); these are fast regression
    * checks that run every time. */
   const PT100_POOL = extractArray('PT100_POOL');
 
   if (!PT100_POOL) {
-    console.log('skip  T34-T41 changing-retakes (PB-0052) checks — PT100_POOL not in this build');
+    console.log('skip  T34-T41 changing-retakes (PB-0052/PB-0055) checks — PT100_POOL not in this build');
   } else {
 
-    check('T34 PT100_POOL has 165 items and is byte-for-byte equivalent to POOL-v1.json', () => {
-      const fixturePath = path.join(__dirname, 'fixtures', 'POOL-v1.json');
-      if (!fs.existsSync(fixturePath)) return 'fixtures/POOL-v1.json is missing — cannot verify against the source pool';
-      const canon = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
-      if (canon.length !== 165) return `fixture has ${canon.length} items, expected 165`;
+    check('T34 PT100_POOL has 242 items and is byte-for-byte equivalent to POOL-v2.json (sha256 fd3eb80a…6812f)', () => {
+      const fixturePath = path.join(__dirname, 'fixtures', 'POOL-v2.json');
+      if (!fs.existsSync(fixturePath)) return 'fixtures/POOL-v2.json is missing — cannot verify against the source pool';
+      const rawFixture = fs.readFileSync(fixturePath, 'utf8');
+      const canon = JSON.parse(rawFixture);
+      if (canon.length !== 242) return `fixture has ${canon.length} items, expected 242`;
       if (PT100_POOL.length !== canon.length) return `build has ${PT100_POOL.length} items, fixture has ${canon.length}`;
       const crypto = require('crypto');
+      const fileHash = crypto.createHash('sha256').update(rawFixture).digest('hex');
       const a = crypto.createHash('sha256').update(JSON.stringify(canon)).digest('hex');
       const b = crypto.createHash('sha256').update(JSON.stringify(PT100_POOL)).digest('hex');
-      console.log('      fixture sha256: ' + a + '\n      build   sha256: ' + b);
-      return a === b ? null : 'PT100_POOL differs from the canonical POOL-v1.json';
+      console.log('      fixture file sha256: ' + fileHash + '\n      fixture sha256: ' + a + '\n      build   sha256: ' + b);
+      if (fileHash !== 'fd3eb80ac684c1ef6e12066b00ad8bb590d56224a53dc517d1d1cdf770e6812f') return 'fixtures/POOL-v2.json itself does not match the authorized sha256 — wrong file committed';
+      return a === b ? null : 'PT100_POOL differs from the canonical POOL-v2.json';
     });
 
     check('T35 PT100_NEED sums to 100 and matches the verified ADE blueprint per-standard allocation', () => {
@@ -609,41 +613,60 @@ if (!FORM_100) {
     /* Rebuild the selection engine locally from its extracted pure pieces
      * (same brace-counting extraction as everything else in this file) so it
      * can be exercised directly, the same way T19/T20 exercise pt100Score()/
-     * pt100IsDone() without a browser. */
+     * pt100IsDone() without a browser. v1.19: no more PT100_FULL_STDS bypass
+     * -- every standard now hard-excludes the previous attempt's items,
+     * falling back to prefer-unused (with a logged event) only if that
+     * leaves too few candidates. */
     function buildPt100Engine() {
       const PT100_NEED = extractObject('PT100_NEED');
-      const PT100_FULL_STDS = extractArray('PT100_FULL_STDS');
       const PT100_STD_ORDER = extractArray('PT100_STD_ORDER');
       const PT100_PAIR_EXCLUSIONS = extractArray('PT100_PAIR_EXCLUSIONS');
       const PT100_CLUSTER_EXCLUSIONS = extractArray('PT100_CLUSTER_EXCLUSIONS');
       const pt100PoolByStd = extractFunction('pt100PoolByStd');
       const pt100Shuffle = extractFunction('pt100Shuffle');
       const pt100SelectForStd = extractFunction('pt100SelectForStd');
-      if (!PT100_NEED || !PT100_FULL_STDS || !PT100_STD_ORDER || !PT100_PAIR_EXCLUSIONS ||
+      if (!PT100_NEED || !PT100_STD_ORDER || !PT100_PAIR_EXCLUSIONS ||
           !PT100_CLUSTER_EXCLUSIONS || !pt100PoolByStd || !pt100Shuffle || !pt100SelectForStd) return null;
+      const idToStd = {};
+      PT100_POOL.forEach(it => { idToStd[it.id] = it.std; });
+      const fallbackLog = [];
       function pt100BuildAttemptPool(pool, prevItemIds, usage, rng) {
         const byStd = pt100PoolByStd(pool);
-        const banned = {};
-        let selected = [];
-        PT100_STD_ORDER.forEach(std => {
+        const chosenByStd = {};
+        function selectStd(std, extraExclude) {
           const need = PT100_NEED[std];
-          const candidates = (byStd[std] || []).filter(it => !banned[it.id]);
-          const chosen = PT100_FULL_STDS.indexOf(std) >= 0 ? candidates : pt100SelectForStd(candidates, need, prevItemIds, usage, rng);
-          chosen.forEach(it => {
-            PT100_PAIR_EXCLUSIONS.forEach(pair => {
-              if (pair[0] === it.id) banned[pair[1]] = true;
-              if (pair[1] === it.id) banned[pair[0]] = true;
-            });
-          });
-          selected = selected.concat(chosen);
+          const candidates = byStd[std] || [];
+          const notPrev = candidates.filter(it => !prevItemIds.has(it.id) && it.id !== extraExclude);
+          if (notPrev.length >= need) return { chosen: pt100SelectForStd(notPrev, need, prevItemIds, usage, rng), fellBack: false };
+          const fallbackCandidates = extraExclude ? candidates.filter(it => it.id !== extraExclude) : candidates;
+          return { chosen: pt100SelectForStd(fallbackCandidates, need, prevItemIds, usage, rng), fellBack: true };
+        }
+        PT100_STD_ORDER.forEach(std => {
+          const r = selectStd(std, null);
+          chosenByStd[std] = r.chosen;
+          if (r.fellBack) fallbackLog.push({ std, need: PT100_NEED[std] });
         });
+        PT100_PAIR_EXCLUSIONS.forEach(pair => {
+          const [idA, idB] = pair;
+          const stdA = idToStd[idA], stdB = idToStd[idB];
+          const hasA = chosenByStd[stdA] && chosenByStd[stdA].some(it => it.id === idA);
+          const hasB = chosenByStd[stdB] && chosenByStd[stdB].some(it => it.id === idB);
+          if (!hasA || !hasB) return;
+          const rA = selectStd(stdA, idA);
+          if (!rA.fellBack) { chosenByStd[stdA] = rA.chosen; return; }
+          const rB = selectStd(stdB, idB);
+          if (!rB.fellBack) { chosenByStd[stdB] = rB.chosen; return; }
+          fallbackLog.push({ std: stdA + '+' + stdB, pairExclusion: pair });
+        });
+        let selected = [];
+        PT100_STD_ORDER.forEach(std => { selected = selected.concat(chosenByStd[std]); });
         return selected;
       }
       function pt100MakeAttemptItems(pool, prevItemIds, usage, rng) {
         const ordered = pt100Shuffle(pt100BuildAttemptPool(pool, prevItemIds, usage, rng), rng);
         return ordered.map(it => ({ id: it.id, perm: pt100Shuffle([0, 1, 2, 3], rng), chosen: null }));
       }
-      return { PT100_NEED, PT100_PAIR_EXCLUSIONS, PT100_CLUSTER_EXCLUSIONS, pt100MakeAttemptItems };
+      return { PT100_NEED, PT100_PAIR_EXCLUSIONS, PT100_CLUSTER_EXCLUSIONS, pt100MakeAttemptItems, fallbackLog };
     }
     function mulberry32(seed) {
       let s = seed >>> 0;
@@ -698,7 +721,7 @@ if (!FORM_100) {
       return right === 100 ? null : `answering every displayed-correct option scored ${right}/100, expected 100`;
     });
 
-    check('T39 consecutive attempts: two in a row (with usage/lastIds carried forward like startPt100 does) share <=77 items and differ by >=23', () => {
+    check('T39 consecutive attempts: two in a row (with usage/lastIds carried forward like startPt100 does) share 0 items (v1.19 hard rule)', () => {
       const eng = buildPt100Engine();
       if (!eng) return 'could not rebuild the selection engine';
       const rng = mulberry32(2026);
@@ -708,8 +731,17 @@ if (!FORM_100) {
       const a2 = eng.pt100MakeAttemptItems(PT100_POOL, prevIds, usage, rng);
       const ids2 = new Set(a2.map(it => it.id));
       let shared = 0; ids2.forEach(id => { if (prevIds.has(id)) shared++; });
-      if (shared > 77) return `consecutive attempts shared ${shared} items, want <=77`;
-      if (100 - shared < 23) return `consecutive attempts differed by ${100 - shared} items, want >=23`;
+      if (shared !== 0) return `consecutive attempts shared ${shared} items, want 0`;
+      if (eng.fallbackLog.length) return `unexpected fallback to prefer-unused: ${JSON.stringify(eng.fallbackLog)} — pool should have had enough non-previous items`;
+      return null;
+    });
+
+    check('T39b the new cross-standard pair exclusion [3.0-01, N5-15] is present alongside the v1.18 pair', () => {
+      const PT100_PAIR_EXCLUSIONS = extractArray('PT100_PAIR_EXCLUSIONS');
+      if (!PT100_PAIR_EXCLUSIONS) return 'PT100_PAIR_EXCLUSIONS not found in the build';
+      const has = (a, b) => PT100_PAIR_EXCLUSIONS.some(p => (p[0] === a && p[1] === b) || (p[0] === b && p[1] === a));
+      if (!has('3.0-01', '11.0-10')) return 'the v1.18 pair [3.0-01, 11.0-10] is missing';
+      if (!has('3.0-01', 'N5-15')) return 'the new v1.19 pair [3.0-01, N5-15] is missing';
       return null;
     });
 
@@ -725,6 +757,51 @@ if (!FORM_100) {
       if (v3.latest.pool !== 'POOL-v1') return `latest.pool should be "POOL-v1", got ${JSON.stringify(v3.latest.pool)}`;
       if (JSON.stringify(v3.latest.items) !== JSON.stringify(items3)) return 'latest.items does not match the [id, chosenOrig, correctOrig] triples given';
       if (v3.latest.score !== 90 || v3.latest.total !== 100 || v3.latest.pass !== false) return 'v3 record lost the base score/total/pass fields — contract v3 must only ADD fields';
+      return null;
+    });
+
+    check('T40b pt100BuildRecord() contract v4: appends a history[] entry per completed attempt, attempts === history.length on fresh records', () => {
+      const pt100BuildRecord = extractFunction('pt100BuildRecord');
+      if (!pt100BuildRecord) return 'pt100BuildRecord() not found';
+      const byDomain = [{ name: 'Domain A', right: 10, n: 10 }];
+      const byStd = [{ name: '4.0', right: 10, n: 10 }];
+      const items3a = [['4.0-01', 1, 1]];
+      const items3b = [['4.0-02', 0, 2]];
+      const r1 = pt100BuildRecord(null, 'ZZ V4', 'anim-fixture', 90, 100, 95, '1.19', byDomain, byStd, 'POOL-v2', items3a);
+      if (!Array.isArray(r1.history) || r1.history.length !== 1) return `history should have 1 entry after 1 attempt, got ${JSON.stringify(r1.history)}`;
+      if (r1.attempts !== r1.history.length) return `attempts (${r1.attempts}) !== history.length (${r1.history.length}) on a fresh v4 record`;
+      const h1 = r1.history[0];
+      if (h1.n !== 1 || h1.score !== 90 || h1.total !== 100 || h1.pct !== 90 || h1.pass !== false || h1.passMark !== 95) return `history[0] shape wrong: ${JSON.stringify(h1)}`;
+      if (h1.pool !== 'POOL-v2' || JSON.stringify(h1.items) !== JSON.stringify(items3a)) return 'history[0] did not record pool/items';
+      const r2 = pt100BuildRecord(r1, 'ZZ V4', 'anim-fixture', 97, 100, 95, '1.19', byDomain, byStd, 'POOL-v2', items3b);
+      if (r2.history.length !== 2) return `history should have 2 entries after 2 attempts, got ${r2.history.length}`;
+      if (r2.attempts !== r2.history.length) return `attempts (${r2.attempts}) !== history.length (${r2.history.length}) after a 2nd attempt`;
+      if (r2.history[0].score !== 90) return 'history is not append-only — the first entry changed';
+      if (r2.history[1].n !== 2 || r2.history[1].score !== 97 || r2.history[1].pass !== true) return `history[1] shape wrong: ${JSON.stringify(r2.history[1])}`;
+      // latest/best/attempts stay exactly as the v3 contract defined them — history is additive only
+      if (r2.latest.score !== 97 || r2.best.score !== 97) return 'latest/best changed shape when history was added — v4 must only ADD history';
+      return null;
+    });
+
+    check('T40c pt100BuildRecord() upgrades a v1.18 record (contract v3, no history key) cleanly — no crash, history seeded from this attempt', () => {
+      const pt100BuildRecord = extractFunction('pt100BuildRecord');
+      if (!pt100BuildRecord) return 'pt100BuildRecord() not found';
+      const byDomain = [{ name: 'Domain A', right: 10, n: 10 }];
+      const byStd = [{ name: '4.0', right: 10, n: 10 }];
+      // a v1.18 record shape: attempts:2, latest/best present, no history key at all
+      const legacy = {
+        name: 'ZZ Legacy', class: 'anim-fixture', form: 'FORM-100-v1', appVersion: '1.18', attempts: 2,
+        latest: { score: 94, total: 100, passMark: 95, pass: false, completedAt: 1000, byDomain: {}, byStd: {}, pool: 'POOL-v1', items: [['4.0-01', 1, 1]] },
+        best: { score: 94, total: 100, passMark: 95, pass: false, completedAt: 1000, byDomain: {}, byStd: {}, pool: 'POOL-v1', items: [['4.0-01', 1, 1]] }
+      };
+      let upgraded;
+      try {
+        upgraded = pt100BuildRecord(legacy, 'ZZ Legacy', 'anim-fixture', 96, 100, 95, '1.19', byDomain, byStd, 'POOL-v2', [['4.0-01', 1, 1]]);
+      } catch (e) { return `pt100BuildRecord() threw on a v1.18 (no-history) record: ${e.message}`; }
+      if (upgraded.attempts !== 3) return `attempts should be 3 (2 legacy + this one), got ${upgraded.attempts}`;
+      if (!Array.isArray(upgraded.history) || upgraded.history.length !== 1) return `expected a fresh 1-entry history on upgrade, got ${JSON.stringify(upgraded.history)}`;
+      if (upgraded.history[0].score !== 96) return 'the upgraded history entry does not reflect this attempt';
+      if (upgraded.latest.score !== 96 || upgraded.best.score !== 96) return 'latest/best broke on a v1.18->v4 upgrade';
       return null;
     });
 
