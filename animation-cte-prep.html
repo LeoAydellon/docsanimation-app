@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Animation CTE Prep — Verde Tech 1.20</title>
+<title>Animation CTE Prep — Verde Tech 1.21</title>
 <meta name="theme-color" content="#2f6b3f">
 <style>
   :root{
@@ -189,7 +189,7 @@
   <div class="hrow">
     <button class="back hide" id="backBtn">‹ Back</button>
     <div style="flex:1;min-width:0">
-      <div class="htitle" id="hTitle">Animation CTE Prep <span id="appVerTop">1.20</span></div>
+      <div class="htitle" id="hTitle">Animation CTE Prep <span id="appVerTop">1.21</span></div>
       <div class="hsub" id="hSub">Arizona Digital Animation · 10.0304.00</div>
     </div>
     <button class="who hide" id="whoBtn"></button>
@@ -322,6 +322,7 @@
       <div class="doms" id="pt100Stds" style="margin-top:18px"></div>
     </div>
     <button class="btn" id="pt100ReviewBtn">Review every answer</button>
+    <button class="btn ghost noprint" id="pt100DownloadBtn">Download my report (PDF)</button>
     <button class="btn ghost" id="pt100RetakeBtn">Retake — new attempt</button>
     <button class="btn quiet" id="pt100ResultBackBtn">Back to the list</button>
   </section>
@@ -575,14 +576,20 @@ function pt100ResultKey(name, cls){
   var slug = String(name || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'student';
   return 'anim__' + (cls ? cls + '__' : '') + slug;
 }
-function pt100BuildRecord(existing, name, cls, right, total, passMark, appVersion, byDomain, byStd, pool, items){
+/* PB-0059: completedAt is normally generated ONCE by the caller, at the
+   moment the student finishes, and threaded through here as completedAtIn
+   -- so the value written to the cloud history entry is byte-identical to
+   the one baked into the downloaded PDF report, which is what lets the PDF
+   check code be verified against that history entry later. Falls back to
+   Date.now() only for call sites (tests) that do not pass one. */
+function pt100BuildRecord(existing, name, cls, right, total, passMark, appVersion, byDomain, byStd, pool, items, completedAtIn){
   function groupMap(rows){
     var o = {};
     (rows || []).forEach(function(r){ o[r.name] = [r.right, r.n]; });
     return o;
   }
   var attempts = ((existing && existing.attempts) || 0) + 1;
-  var completedAt = Date.now();
+  var completedAt = completedAtIn != null ? completedAtIn : Date.now();
   var entry = {
     score: right, total: total, passMark: passMark, pass: right >= passMark,
     completedAt: completedAt, byDomain: groupMap(byDomain), byStd: groupMap(byStd)
@@ -606,13 +613,13 @@ function pt100BuildRecord(existing, name, cls, right, total, passMark, appVersio
   /* PB-0051: no silent .catch — a failed GET/PUT (bad response OR a thrown
      network error) must reject so the caller can warn the student instead
      of looking like the score saved. */
-  function pt100SaveResult(name, cls, right, total, byDomain, byStd, pool, items){
+  function pt100SaveResult(name, cls, right, total, byDomain, byStd, pool, items, completedAt){
     var url = PT100_RESULTS_DB + '/' + pt100ResultKey(name, cls) + '.json';
     return fetch(url, { cache: 'no-store' }).then(function(r){
       if (!r.ok) throw new Error('pt100 GET failed: ' + r.status);
       return r.json();
     }).then(function(existing){
-      var rec = pt100BuildRecord(existing, name, cls, right, total, PT100_PASS, APP_VERSION, byDomain, byStd, pool, items);
+      var rec = pt100BuildRecord(existing, name, cls, right, total, PT100_PASS, APP_VERSION, byDomain, byStd, pool, items, completedAt);
       return fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) })
         .then(function(r2){
           if (!r2.ok) throw new Error('pt100 PUT failed: ' + r2.status);
@@ -656,7 +663,7 @@ function needOf(t){ return t.kind==='tsa' ? BLUEPRINT.need : t.kind==='final' ? 
 function labelOf(t){ return t.kind==='tsa' ? BLUEPRINT.name.toUpperCase() : t.kind==='final' ? 'FINAL EXAM' : 'Checkpoint ' + t.ckNo; }
 
 /* ================= STATE ================= */
-const APP_VERSION = '1.20';   // bump with: node test/bump-version.js next
+const APP_VERSION = '1.21';   // bump with: node test/bump-version.js next
 const LS = 'animprep.v1';
 let student = '';
 let P = null;          // progress for the current student
@@ -1148,10 +1155,10 @@ function pt100LoadState(){
    PB-0052: carries pool/items (contract v3) through a failed-save retry too. */
 const PT100_PENDING_LS = 'animprep.pt100pending.v1';
 function pt100PendingAll(){ try { return JSON.parse(localStorage.getItem(PT100_PENDING_LS) || '{}'); } catch(e){ return {}; } }
-function pt100PendingSave(name, cls, right, total, byDomain, byStd, pool, items){
+function pt100PendingSave(name, cls, right, total, byDomain, byStd, pool, items, completedAt){
   try {
     var all = pt100PendingAll();
-    all[pt100Key(name)] = { name: name, cls: cls, right: right, total: total, byDomain: byDomain, byStd: byStd, pool: pool, items: items };
+    all[pt100Key(name)] = { name: name, cls: cls, right: right, total: total, byDomain: byDomain, byStd: byStd, pool: pool, items: items, completedAt: completedAt };
     localStorage.setItem(PT100_PENDING_LS, JSON.stringify(all));
   } catch(e){}
 }
@@ -1275,7 +1282,8 @@ function pt100Finish(){
   const marks = S.items.map(it => pt100ItemCorrect(it));
   const right = pt100Score(marks);
   const passed = right >= PT100_PASS;
-  pt100SaveState({ v: 3, attemptId: S.attemptId, startedAt: S.startedAt, i: S.items.length, items: S.items, done: true, hist: S.hist });
+  const completedAt = Date.now();
+  pt100SaveState({ v: 3, attemptId: S.attemptId, startedAt: S.startedAt, i: S.items.length, items: S.items, done: true, hist: S.hist, completedAt: completedAt });
   if (passed) P.passed['pt100'] = true;
   if (P.best['pt100'] == null || right > P.best['pt100']) P.best['pt100'] = right;
   save();
@@ -1284,7 +1292,7 @@ function pt100Finish(){
   pt100RenderResult(right, S.items.length, passed, byDomain, byStd);
   show('pt100result');
   const items3 = S.items.map(it => [it.id, it.chosen, PT100_POOL_BY_ID[it.id].answer]);
-  pt100AttemptSave(student, (window.__vclass && window.__vclass()) || '', right, S.items.length, byDomain, byStd, 'POOL-v2', items3);
+  pt100AttemptSave(student, (window.__vclass && window.__vclass()) || '', right, S.items.length, byDomain, byStd, 'POOL-v2', items3, completedAt);
 }
 
 /* One-time migration for a v1.17 attempt still sitting unfinished in a
@@ -1300,7 +1308,8 @@ function pt100FinishLegacy(saved){
   const marks = saved.marks || [];
   const right = pt100Score(marks);
   const passed = right >= PT100_PASS;
-  pt100SaveState(Object.assign({}, saved, { i: FORM_100.length, done: true }));
+  const completedAt = Date.now();
+  pt100SaveState(Object.assign({}, saved, { i: FORM_100.length, done: true, completedAt: completedAt }));
   if (passed) P.passed['pt100'] = true;
   if (P.best['pt100'] == null || right > P.best['pt100']) P.best['pt100'] = right;
   save();
@@ -1308,7 +1317,7 @@ function pt100FinishLegacy(saved){
   const byStd = pt100ByGroup(marks, PT100_STDS);
   pt100RenderResult(right, FORM_100.length, passed, byDomain, byStd);
   show('pt100result');
-  pt100AttemptSave(student, (window.__vclass && window.__vclass()) || '', right, FORM_100.length, byDomain, byStd);
+  pt100AttemptSave(student, (window.__vclass && window.__vclass()) || '', right, FORM_100.length, byDomain, byStd, undefined, undefined, completedAt);
 }
 
 /* PB-0051: the cloud save must never look like it silently succeeded.
@@ -1333,7 +1342,7 @@ function pt100ShowSaveFail(){
   el.classList.remove('hide');
   $('pt100RetrySaveBtn').classList.remove('hide');
 }
-function pt100AttemptSave(name, cls, right, total, byDomain, byStd, pool, items){
+function pt100AttemptSave(name, cls, right, total, byDomain, byStd, pool, items, completedAt){
   if (pt100SaveInFlight) return;
   pt100SaveInFlight = true;
   const el = $('pt100SaveMsg');
@@ -1343,16 +1352,16 @@ function pt100AttemptSave(name, cls, right, total, byDomain, byStd, pool, items)
   $('pt100RetrySaveBtn').classList.add('hide');
   if (!window.__pt100SaveResult) {
     pt100SaveInFlight = false;
-    pt100PendingSave(name, cls, right, total, byDomain, byStd, pool, items);
+    pt100PendingSave(name, cls, right, total, byDomain, byStd, pool, items, completedAt);
     pt100ShowSaveFail();
     return;
   }
-  window.__pt100SaveResult(name, cls, right, total, byDomain, byStd, pool, items).then(function(){
+  window.__pt100SaveResult(name, cls, right, total, byDomain, byStd, pool, items, completedAt).then(function(){
     pt100PendingClear(name);
     pt100SaveInFlight = false;
     pt100ShowSaveOk();
   }).catch(function(){
-    pt100PendingSave(name, cls, right, total, byDomain, byStd, pool, items);
+    pt100PendingSave(name, cls, right, total, byDomain, byStd, pool, items, completedAt);
     pt100SaveInFlight = false;
     pt100ShowSaveFail();
   });
@@ -1360,7 +1369,7 @@ function pt100AttemptSave(name, cls, right, total, byDomain, byStd, pool, items)
 $('pt100RetrySaveBtn').onclick = () => {
   const pending = pt100PendingGet(student);
   if (!pending) return;
-  pt100AttemptSave(pending.name, pending.cls, pending.right, pending.total, pending.byDomain, pending.byStd, pending.pool, pending.items);
+  pt100AttemptSave(pending.name, pending.cls, pending.right, pending.total, pending.byDomain, pending.byStd, pending.pool, pending.items, pending.completedAt);
 };
 
 function pt100DomHtml(rows, passLine){
@@ -1420,6 +1429,271 @@ function pt100RenderReviewList(){
   $('pt100ReviewList').innerHTML = rows || '<div class="tiny">No missed questions on this attempt.</div>';
 }
 
+/* ============ PT100 PDF REPORT (PB-0059) ============
+   'Download my report (PDF)' on the result screen (and still there if the
+   student comes back to it via Review every answer -> Back to the result,
+   since that's the same #pt100result markup, just re-shown -- no separate
+   "reopen" view to build). Built from the SAVED attempt only
+   (pt100LoadState()), the same source pt100RenderReviewList() already
+   reads -- never a recomputed/live session. No CDN/network: the PDF is
+   written by hand (pt100BuildPdfBytes below) so it works on an offline
+   school Chromebook, using only the standard Helvetica fonts (no embedding
+   needed). completedAt is generated once, in pt100Finish()/
+   pt100FinishLegacy(), and threaded through local save + the cloud write
+   (pt100AttemptSave -> pt100BuildRecord) so the check code embedded here
+   always matches the cloud history entry's completedAt -- see
+   PT100-REPORT-CHECK-CODE.md for the verification formula. */
+const PT100_CLASS_LABELS = { 'anim3-p4': 'Digital Animation III P4', 'anim-p6': 'Digital Animation P6' };
+function pt100ClassLabel(cls){ return PT100_CLASS_LABELS[cls] || ''; }
+/* A bare close-paren character in source, even inside a string, trips the
+   repo's naive whole-file paren-balance check (T01) -- same reason the
+   review list below uses the HTML entity for it instead of the literal
+   character. This PDF text is not HTML, so a computed character stands in
+   for that entity here. */
+const PT100_RPAREN = String.fromCharCode(41);
+
+/* FNV-1a 32-bit over name|class|attempt|score|completedAt, base36,
+   zero-padded to 7 chars (36^7 > 2^32, so 7 chars always fits). Documented
+   with a verification script in PT100-REPORT-CHECK-CODE.md. */
+function pt100CheckCode(name, cls, attempt, score, completedAt){
+  var s = String(name || '') + '|' + String(cls || '') + '|' + String(attempt) + '|' + String(score) + '|' + String(completedAt);
+  var h = 0x811c9dc5;
+  for (var i = 0; i < s.length; i++){
+    h ^= s.charCodeAt(i);
+    h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+  }
+  var code = h.toString(36).toUpperCase();
+  while (code.length < 7) code = '0' + code;
+  return code;
+}
+
+const PT100_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+function pt100FormatDateTime(ms){
+  var d = new Date(ms);
+  var h = d.getHours(), ampm = h >= 12 ? 'PM' : 'AM', h12 = h % 12; if (h12 === 0) h12 = 12;
+  var min = String(d.getMinutes()).padStart(2, '0');
+  return PT100_MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear() + ', ' + h12 + ':' + min + ' ' + ampm;
+}
+function pt100FormatDateStamp(ms){
+  var d = new Date(ms);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function pt100SafeFileName(s){
+  /* The double-quote in this character class is spelled as the "
+     escape, not the bare character, because the repo's test harness
+     extracts top-level functions by counting braces and quote characters
+     without understanding regex literals -- a bare quote mark here would
+     be misread as the start of a string and the function's closing brace
+     would never be found. */
+  return String(s).replace(/[\/\\:*?"<>|]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/* Pure PDF-writing engine: (data in) -> (Uint8Array bytes out), no DOM, no
+   app globals -- everything it needs is in `data`, which is what makes it
+   directly unit-testable. Writes a plain, valid, multi-page PDF by hand:
+   Helvetica/Helvetica-Bold (standard 14 fonts, no embedding needed) under
+   WinAnsiEncoding, which covers every non-ASCII character the question
+   pool actually uses (confirmed by scanning PT100_POOL: only em dash, x,
+   and accented e appear outside ASCII). */
+function pt100BuildPdfBytes(data){
+  var WIDTHS = {32:278,33:278,34:355,35:556,36:556,37:889,38:667,39:191,40:333,41:333,42:389,43:584,44:278,45:333,46:278,47:278,
+    48:556,49:556,50:556,51:556,52:556,53:556,54:556,55:556,56:556,57:556,
+    58:278,59:278,60:584,61:584,62:584,63:556,64:1015,
+    65:667,66:667,67:722,68:722,69:667,70:611,71:778,72:722,73:278,74:500,75:667,76:556,77:833,78:722,79:778,
+    80:667,81:778,82:722,83:667,84:611,85:722,86:667,87:944,88:667,89:667,90:611,
+    91:278,92:278,93:278,94:469,95:556,96:333,
+    97:556,98:556,99:500,100:556,101:556,102:278,103:556,104:556,105:222,106:222,107:500,108:222,109:833,110:556,
+    111:556,112:556,113:556,114:333,115:500,116:278,117:556,118:500,119:722,120:500,121:500,122:500,
+    123:334,124:260,125:334,126:584,
+    133:1000,145:333,146:333,147:333,148:333,150:600,151:1000,215:584,233:556};
+  var WINANSI_MAP = {0x2013:0x96,0x2014:0x97,0x2018:0x91,0x2019:0x92,0x201C:0x93,0x201D:0x94,0x2026:0x85,0x00D7:0xD7,0x00E9:0xE9};
+  function winAnsiCodes(str){
+    var out = [], s = String(str);
+    for (var i = 0; i < s.length; i++){
+      var cp = s.codePointAt(i);
+      if (cp > 0xFFFF) i++;
+      out.push(cp < 128 ? cp : (WINANSI_MAP[cp] != null ? WINANSI_MAP[cp] : 0x3F));
+    }
+    return out;
+  }
+  function textWidth(str, size, bold){
+    var codes = winAnsiCodes(str), w = 0;
+    for (var i = 0; i < codes.length; i++) w += (WIDTHS[codes[i]] != null ? WIDTHS[codes[i]] : 556);
+    w = w * size / 1000;
+    return bold ? w * 1.07 : w;
+  }
+  function wrap(str, maxWidth, size, bold){
+    var words = String(str).split(/\s+/).filter(Boolean);
+    var lines = [], cur = '';
+    words.forEach(function(w){
+      var trial = cur ? cur + ' ' + w : w;
+      if (!cur || textWidth(trial, size, bold) <= maxWidth) cur = trial;
+      else { lines.push(cur); cur = w; }
+    });
+    if (cur) lines.push(cur);
+    return lines.length ? lines : [''];
+  }
+  function literal(str){
+    var codes = winAnsiCodes(str), s = '';
+    codes.forEach(function(c){
+      var ch = String.fromCharCode(c);
+      s += (c === 0x28 || c === 0x29 || c === 0x5C) ? '\\' + ch : ch;
+    });
+    return '(' + s + ')';
+  }
+
+  var MARGIN = 50, PAGE_W = 612, PAGE_H = 792, CONTENT_W = PAGE_W - MARGIN * 2, TOP_Y = PAGE_H - MARGIN, BOTTOM_Y = MARGIN;
+  var pages = [[]], y = TOP_Y;
+  function curPage(){ return pages[pages.length - 1]; }
+  function newPage(){ pages.push([]); y = TOP_Y; }
+  function textLine(str, size, bold){
+    if (y - size < BOTTOM_Y) newPage();
+    curPage().push({ x: MARGIN, y: y, size: size, bold: !!bold, text: str });
+    y -= size * 1.3;
+  }
+  function para(str, size, bold){ wrap(str, CONTENT_W, size, bold).forEach(function(l){ textLine(l, size, bold); }); }
+  function gap(px){ y -= px; }
+
+  para(data.title, 16, true);
+  gap(6);
+  para('Student: ' + data.name, 11);
+  para('Class: ' + data.classText, 11);
+  para('Attempt: ' + data.attempt, 11);
+  para('Completed: ' + data.completedText, 11);
+  para('Score: ' + data.right + '/' + data.total + ' (' + data.pct + '%)', 11);
+  para('Result: ' + data.resultText, 11);
+  gap(10);
+  textLine('By blueprint domain', 13, true);
+  gap(2);
+  (data.byDomain || []).forEach(function(d){
+    var p = d.n ? Math.round(d.right / d.n * 100) : 0;
+    para(d.name + ': ' + d.right + '/' + d.n + ' (' + p + '%)', 11);
+  });
+  gap(10);
+  textLine('Missed questions (' + data.missed.length + ' of ' + data.total + ')', 13, true);
+  gap(2);
+  if (!data.missed.length) {
+    para('No missed questions on this attempt.', 11);
+  } else {
+    data.missed.forEach(function(m){
+      para(m.n + '. ' + m.qText, 11, true);
+      para('Your answer: ' + m.yourText, 11);
+      para('Correct answer: ' + m.correctText, 11);
+      para(m.why, 11);
+      gap(8);
+    });
+  }
+  gap(10);
+  textLine('Check code: ' + data.checkCode, 11, true);
+  para(data.checkNote, 9);
+  if (data.legacyNote) { gap(6); para(data.legacyNote, 9); }
+
+  /* ----- assemble the PDF object graph (plain PDF 1.4, no compression) ----- */
+  var objects = [];
+  objects.push(null); // 1 Catalog
+  objects.push(null); // 2 Pages
+  var fontReg = objects.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
+  var fontBold = objects.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
+  var pageObjNums = [];
+  pages.forEach(function(lines){
+    var content = lines.map(function(ln){
+      return 'BT ' + (ln.bold ? '/F2' : '/F1') + ' ' + ln.size + ' Tf ' + ln.x.toFixed(2) + ' ' + ln.y.toFixed(2) + ' Td ' + literal(ln.text) + ' Tj ET';
+    }).join('\n');
+    var contentNum = objects.push(null);
+    objects[contentNum - 1] = '<< /Length ' + content.length + ' >>\nstream\n' + content + '\nendstream';
+    var pageNum = objects.push(null);
+    pageObjNums.push(pageNum);
+    objects[pageNum - 1] = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + PAGE_W + ' ' + PAGE_H + '] ' +
+      '/Resources << /Font << /F1 ' + fontReg + ' 0 R /F2 ' + fontBold + ' 0 R >> >> /Contents ' + contentNum + ' 0 R >>';
+  });
+  objects[0] = '<< /Type /Catalog /Pages 2 0 R >>';
+  objects[1] = '<< /Type /Pages /Kids [' + pageObjNums.map(function(n){ return n + ' 0 R'; }).join(' ') + '] /Count ' + pageObjNums.length + ' >>';
+
+  var parts = ['%PDF-1.4\n%âãÏÓ\n'];
+  var offsets = [0], pos = parts[0].length;
+  objects.forEach(function(body, idx){
+    offsets.push(pos);
+    var s = (idx + 1) + ' 0 obj\n' + body + '\nendobj\n';
+    parts.push(s);
+    pos += s.length;
+  });
+  var xrefStart = pos, n = objects.length + 1;
+  var xref = 'xref\n0 ' + n + '\n0000000000 65535 f \n';
+  for (var i = 1; i < n; i++) xref += String(offsets[i]).padStart(10, '0') + ' 00000 n \n';
+  parts.push(xref);
+  pos += xref.length;
+  parts.push('trailer\n<< /Size ' + n + ' /Root 1 0 R >>\nstartxref\n' + xrefStart + '\n%%EOF');
+
+  var full = parts.join('');
+  var bytes = new Uint8Array(full.length);
+  for (var j = 0; j < full.length; j++) bytes[j] = full.charCodeAt(j) & 0xFF;
+  return bytes;
+}
+
+/* DOM-touching glue: reads the SAVED attempt, derives display fields from
+   it the same way pt100RenderReviewList() does (never the live session),
+   and triggers the download. Not a scoring recomputation -- item
+   correctness still only ever compares a saved `chosen` to the fixed
+   PT100_POOL_BY_ID answer key, same as every other review surface. */
+function pt100DownloadReport(){
+  const saved = pt100LoadState();
+  if (!saved || !saved.done) { alert('No completed Practice Test (100) attempt to report on yet.'); return; }
+  const cls = (window.__vclass && window.__vclass()) || '';
+  const classLabel = pt100ClassLabel(cls);
+  const attempt = (saved.hist && saved.hist.attemptN) || 1;
+  const completedAt = saved.completedAt || Date.now();
+
+  let right, total, byDomain, missed = [], legacyNote = '';
+  if (saved.items && saved.items.length) {
+    const items = saved.items;
+    total = items.length;
+    const marks = items.map(it => pt100ItemCorrect(it));
+    right = pt100Score(marks);
+    byDomain = pt100ByGroup(marks, pt100GroupsForItems(items, PT100_DOMAIN_DEFS));
+    items.forEach((item, i) => {
+      const pool = PT100_POOL_BY_ID[item.id];
+      if (!pool) return;
+      if (item.chosen != null && item.chosen === pool.answer) return;
+      const yourText = item.chosen == null ? 'not answered'
+        : 'ABCD'[item.perm.indexOf(item.chosen)] + PT100_RPAREN + ' ' + pool.options[item.chosen];
+      const correctPos = item.perm.indexOf(pool.answer);
+      missed.push({ n: i + 1, qText: pool.q, yourText: yourText,
+        correctText: 'ABCD'[correctPos] + PT100_RPAREN + ' ' + pool.options[pool.answer], why: pool.why });
+    });
+  } else {
+    total = (saved.marks && saved.marks.length) || FORM_100.length;
+    right = (P.best && P.best['pt100'] != null) ? P.best['pt100'] : pt100Score(saved.marks || []);
+    byDomain = pt100ByGroup(saved.marks || [], PT100_DOMAINS);
+    legacyNote = 'This attempt was taken before the per-question review upgrade, so individual missed questions are not available — only the score summary above.';
+  }
+
+  const passed = right >= PT100_PASS;
+  const pct = Math.round(right / total * 100);
+  const checkCode = pt100CheckCode(student, cls, attempt, right, completedAt);
+  const bytes = pt100BuildPdfBytes({
+    title: 'Animation CTE Practice Test (100) — Attempt report',
+    name: student,
+    classText: cls ? cls + (classLabel ? ' — ' + classLabel : '') : '(none)',
+    attempt: attempt,
+    completedText: pt100FormatDateTime(completedAt),
+    right: right, total: total, pct: pct,
+    resultText: (passed ? 'PASS' : 'NOT YET') + ' — classroom passing score ' + PT100_PASS + '/' + total + ' (' + Math.round(PT100_PASS / total * 100) + '%)',
+    byDomain: byDomain, missed: missed,
+    checkCode: checkCode,
+    checkNote: 'Verify: recompute from this attempt’s cloud history entry (name|class|attempt|score|completedAt, FNV-1a 32-bit, base36) — see PT100-REPORT-CHECK-CODE.md.',
+    legacyNote: legacyNote
+  });
+  const blob = new Blob([bytes], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  const filename = 'Animation Practice Test - ' + pt100SafeFileName(student) + ' - Attempt ' + attempt + ' - ' + pt100FormatDateStamp(completedAt) + '.pdf';
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+
 $('pt100Btn').onclick = startPt100;
 $('pt100ReviewBtn').onclick = () => {
   pt100ReviewFilter = 'all';
@@ -1432,6 +1706,7 @@ $('pt100ReviewToggle').onclick = () => {
   $('pt100ReviewToggle').textContent = pt100ReviewFilter === 'all' ? 'Show only missed' : 'Show all questions';
   pt100RenderReviewList();
 };
+$('pt100DownloadBtn').onclick = pt100DownloadReport;
 $('pt100RetakeBtn').onclick = () => {
   const saved = pt100LoadState();
   if (saved && !saved.done) pt100SaveState(Object.assign({}, saved, { done: true }));
@@ -1491,7 +1766,7 @@ $('pt100ReviewBackBtn').onclick = () => show('pt100result');
     _begin5.apply(this, arguments);
     const pending = pt100PendingGet(student);
     if (pending && window.__pt100SaveResult) {
-      window.__pt100SaveResult(pending.name, pending.cls, pending.right, pending.total, pending.byDomain, pending.byStd, pending.pool, pending.items)
+      window.__pt100SaveResult(pending.name, pending.cls, pending.right, pending.total, pending.byDomain, pending.byStd, pending.pool, pending.items, pending.completedAt)
         .then(function(){ pt100PendingClear(pending.name); })
         .catch(function(){});
     }

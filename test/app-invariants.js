@@ -133,6 +133,9 @@ function extractFunction(name) {
  * file), not wherever extractFunction happens to be called from. A block-
  * scoped const declared inside a later if/else would be invisible to it. */
 const PT100_CLUSTER_EXCLUSIONS = extractArray('PT100_CLUSTER_EXCLUSIONS');
+/* Same reason as above: pt100ClassLabel()'s body references PT100_CLASS_LABELS
+ * as a free variable (PB-0059), so it must be visible here too. */
+const PT100_CLASS_LABELS = extractObject('PT100_CLASS_LABELS');
 
 console.log('--- Ag CTE Prep invariants\n');
 
@@ -826,6 +829,182 @@ if (!FORM_100) {
       if (!/pt100ReviewFilter\s*===\s*'missed'/.test(reviewFn[0])) return 'pt100RenderReviewList() does not honor the missed-only filter';
       if (!/not answered/.test(reviewFn[0])) return 'review does not handle an unanswered item';
       if (!/esc\(pool\.why\)/.test(reviewFn[0])) return 'review does not show the explanation for every item';
+      return null;
+    });
+
+    /* -------------------------------------------- PB-0059: "Download my report
+     * (PDF)" on the result screen. The PDF is built entirely client-side (no
+     * CDN/network, so it keeps working on an offline Chromebook) by
+     * pt100BuildPdfBytes(), a pure function (data in, Uint8Array bytes out)
+     * with no DOM/app-global dependencies -- that purity is what lets these
+     * checks build and inspect real PDFs without a browser. completedAt is
+     * threaded through pt100Finish()/pt100FinishLegacy() -> pt100AttemptSave()
+     * -> pt100BuildRecord() so the PDF's embedded check code always matches
+     * the cloud history entry (PT100-REPORT-CHECK-CODE.md documents how a
+     * human verifies that independently). */
+
+    check('T43 completedAt is generated once per completion and threaded through local save + the cloud write (so the PDF check code matches the cloud history entry)', () => {
+      const finishFn = src.match(/function pt100Finish\s*\([^)]*\)\s*\{[\s\S]*?\n\}/);
+      if (!finishFn) return 'pt100Finish() not found';
+      if (!/const completedAt = Date\.now\(\)/.test(finishFn[0])) return 'pt100Finish() does not generate completedAt once';
+      if (!/completedAt:\s*completedAt/.test(finishFn[0])) return 'pt100Finish() does not save completedAt into local state';
+      if (!/pt100AttemptSave\(/.test(finishFn[0])) return 'pt100Finish() never calls pt100AttemptSave(...)';
+      if (!/,\s*completedAt\s*\)\s*;/.test(finishFn[0])) return 'pt100Finish() does not pass completedAt as the final argument to pt100AttemptSave(...)';
+
+      const legacyFn = src.match(/function pt100FinishLegacy\s*\([^)]*\)\s*\{[\s\S]*?\n\}/);
+      if (!legacyFn) return 'pt100FinishLegacy() not found';
+      if (!/const completedAt = Date\.now\(\)/.test(legacyFn[0])) return 'pt100FinishLegacy() does not generate completedAt once';
+      if (!/completedAt:\s*completedAt/.test(legacyFn[0])) return 'pt100FinishLegacy() does not save completedAt into local state';
+
+      if (!/function pt100AttemptSave\([^)]*completedAt[^)]*\)/.test(src)) return 'pt100AttemptSave() does not accept a completedAt parameter';
+      const attemptFn = src.match(/function pt100AttemptSave\s*\([^)]*\)\s*\{[\s\S]*?\n\}/);
+      if (!attemptFn) return 'pt100AttemptSave() not found';
+      if (!/__pt100SaveResult\(/.test(attemptFn[0])) return 'pt100AttemptSave() never calls window.__pt100SaveResult(...)';
+      if (!/,\s*completedAt\s*\)\.then/.test(attemptFn[0])) return 'pt100AttemptSave() does not forward completedAt to window.__pt100SaveResult(...)';
+      return null;
+    });
+
+    check('T44 pt100BuildRecord() uses a caller-supplied completedAt verbatim (not a fresh Date.now()), and still defaults when omitted', () => {
+      const pt100BuildRecord = extractFunction('pt100BuildRecord');
+      if (!pt100BuildRecord) return 'pt100BuildRecord() not found';
+      const byDomain = [{ name: 'Domain A', right: 10, n: 10 }];
+      const byStd = [{ name: '4.0', right: 10, n: 10 }];
+      const rec = pt100BuildRecord(null, 'ZZ CompletedAt', 'anim-fixture', 90, 100, 95, '1.21', byDomain, byStd, 'POOL-v2', [], 1700000000000);
+      if (rec.latest.completedAt !== 1700000000000) return `latest.completedAt should be the supplied value, got ${rec.latest.completedAt}`;
+      if (rec.history[0].completedAt !== 1700000000000) return `history[0].completedAt should be the supplied value, got ${rec.history[0].completedAt}`;
+      const recNoArg = pt100BuildRecord(null, 'ZZ CompletedAt2', 'anim-fixture', 90, 100, 95, '1.21', byDomain, byStd);
+      if (typeof recNoArg.latest.completedAt !== 'number') return 'completedAt should still default to Date.now() when the caller omits it (back-compat)';
+      return null;
+    });
+
+    check('T45 pt100CheckCode() is deterministic and matches what the matching cloud history entry recomputes to', () => {
+      const pt100CheckCode = extractFunction('pt100CheckCode');
+      const pt100BuildRecord = extractFunction('pt100BuildRecord');
+      if (!pt100CheckCode) return 'pt100CheckCode() not found';
+      if (!pt100BuildRecord) return 'pt100BuildRecord() not found';
+      const a = pt100CheckCode('ZZ Check', 'anim3-p4', 1, 94, 1700000000000);
+      const b = pt100CheckCode('ZZ Check', 'anim3-p4', 1, 94, 1700000000000);
+      if (a !== b) return 'the same inputs produced two different codes — not deterministic';
+      if (!/^[0-9A-Z]{7}$/.test(a)) return `code is not 7 uppercase base36 characters: "${a}"`;
+      const diff = pt100CheckCode('ZZ Check', 'anim3-p4', 1, 95, 1700000000000);
+      if (diff === a) return 'changing the score did not change the code';
+
+      const rec = pt100BuildRecord(null, 'ZZ Check', 'anim3-p4', 94, 100, 95, '1.21', [], [], 'POOL-v2', [], 1700000000000);
+      const h = rec.history[0];
+      const recomputed = pt100CheckCode(rec.name, rec.class, h.n, h.score, h.completedAt);
+      if (recomputed !== a) return `recomputing from the cloud history entry gave "${recomputed}", expected the original code "${a}"`;
+      return null;
+    });
+
+    check('T46 pt100ClassLabel() maps the two real class tags to their teacher-facing names, and is blank for anything else', () => {
+      const pt100ClassLabel = extractFunction('pt100ClassLabel');
+      if (!pt100ClassLabel) return 'pt100ClassLabel() not found';
+      if (pt100ClassLabel('anim3-p4') !== 'Digital Animation III P4') return `anim3-p4 -> "${pt100ClassLabel('anim3-p4')}"`;
+      if (pt100ClassLabel('anim-p6') !== 'Digital Animation P6') return `anim-p6 -> "${pt100ClassLabel('anim-p6')}"`;
+      if (pt100ClassLabel('') !== '') return 'a blank class tag should map to an empty label, not a placeholder';
+      if (pt100ClassLabel('made-up-tag') !== '') return 'an unrecognized tag should map to an empty label, not throw or guess';
+      return null;
+    });
+
+    check('T47 the result screen has a "Download my report (PDF)" button wired to pt100DownloadReport, inside #pt100result so it still works after Review -> Back to the result', () => {
+      const resultSection = src.match(/<section id="pt100result"[\s\S]*?<\/section>/);
+      if (!resultSection) return '#pt100result section not found';
+      if (!/id="pt100DownloadBtn"[^>]*>Download my report \(PDF\)</.test(resultSection[0]))
+        return '#pt100result does not contain a "Download my report (PDF)" button with id="pt100DownloadBtn"';
+      if (!/\$\('pt100DownloadBtn'\)\.onclick\s*=\s*pt100DownloadReport/.test(src))
+        return 'pt100DownloadBtn is not wired to pt100DownloadReport';
+      return null;
+    });
+
+    check('T48 pt100BuildPdfBytes() produces a valid, parseable, text-extractable PDF with every required field, for a 94 and a 98 attempt', () => {
+      const pt100BuildPdfBytes = extractFunction('pt100BuildPdfBytes');
+      if (!pt100BuildPdfBytes) return 'pt100BuildPdfBytes() not found';
+
+      /* WinAnsiEncoding codes 0xA0-0xFF are identical to their Latin-1/Unicode
+         code points (so Buffer's 'latin1' decoding already gets é/× right),
+         but 0x80-0x9F diverge -- that's where WinAnsi puts the em dash etc.
+         instead of the C1 control characters Latin-1 has there. A real PDF
+         reader knows the font's /Encoding and remaps those; this test-only
+         extractor has to do the same small remap by hand to compare text. */
+      const WINANSI_C1_FIX = { 0x85:'…',0x91:'‘',0x92:'’',0x93:'“',0x94:'”',0x96:'–',0x97:'—' };
+      function extractPdfText(buf){
+        const raw = buf.toString('latin1');
+        let text = '';
+        const streamRe = /stream\r?\n([\s\S]*?)\r?\nendstream/g;
+        let sm;
+        while ((sm = streamRe.exec(raw))) {
+          const tjRe = /\(((?:\\.|[^()\\])*)\)\s*Tj/g;
+          let tm;
+          while ((tm = tjRe.exec(sm[1]))) {
+            const unescaped = tm[1].replace(/\\([()\\])/g, '$1');
+            const fixed = unescaped.replace(/[\u0085\u0091\u0092\u0093\u0094\u0096\u0097]/g, ch => WINANSI_C1_FIX[ch.charCodeAt(0)]);
+            text += fixed + '\n';
+          }
+        }
+        return text;
+      }
+
+      const base = {
+        title: 'Animation CTE Practice Test (100) — Attempt report',
+        name: 'ZZ Field Check', classText: 'anim3-p4 — Digital Animation III P4',
+        attempt: 2, completedText: 'October 16, 2026, 1:32 PM',
+        checkCode: 'ABC1234', checkNote: 'Verify note.', legacyNote: ''
+      };
+      const cases = [{ right: 94, missedN: 6 }, { right: 98, missedN: 2 }];
+      for (const c of cases) {
+        const missed = Array.from({ length: c.missedN }, (_, i) => ({
+          n: i + 1, qText: 'Q text ' + (i + 1), yourText: 'A) wrong', correctText: 'B) right', why: 'why ' + i
+        }));
+        const data = Object.assign({}, base, {
+          right: c.right, total: 100, pct: c.right,
+          resultText: (c.right >= 95 ? 'PASS' : 'NOT YET') + ' — classroom passing score 95/100 (95%)',
+          byDomain: [{ name: 'Domain A', right: c.right, n: 100 }],
+          missed: missed
+        });
+        const buf = Buffer.from(pt100BuildPdfBytes(data));
+        const raw = buf.toString('latin1');
+        if (!raw.startsWith('%PDF-1.')) return `score ${c.right}: missing PDF header — not a valid PDF`;
+        if (!/%%EOF\s*$/.test(raw)) return `score ${c.right}: missing trailing %%EOF — not a valid PDF`;
+        if (!/\nxref\n/.test(raw)) return `score ${c.right}: no xref table — not parseable`;
+        if (!/\ntrailer\n/.test(raw) || !/\/Root \d+ 0 R/.test(raw)) return `score ${c.right}: no trailer/Root reference — not parseable`;
+
+        const text = extractPdfText(buf);
+        if (!text) return `score ${c.right}: no text extracted — PDF is image-only or malformed`;
+        if (!text.includes(base.title)) return `score ${c.right}: title not extractable`;
+        if (!text.includes('Student: ZZ Field Check')) return `score ${c.right}: student name not extractable`;
+        if (!text.includes('Class: anim3-p4') || !text.includes('Digital Animation III P4')) return `score ${c.right}: class tag/label not extractable`;
+        if (!text.includes('Attempt: 2')) return `score ${c.right}: attempt number not extractable`;
+        if (!text.includes(`Score: ${c.right}/100 (${c.right}%)`)) return `score ${c.right}: score line not extractable`;
+        if (!text.includes(c.right >= 95 ? 'PASS' : 'NOT YET')) return `score ${c.right}: PASS/NOT YET verdict not extractable`;
+        if (!text.includes('(95%)')) return `score ${c.right}: the 95% passing-score note is missing`;
+        if (!text.includes('By blueprint domain')) return `score ${c.right}: domain breakdown heading missing`;
+        if (!text.includes(`Missed questions (${c.missedN} of 100)`)) return `score ${c.right}: missed-count heading wrong`;
+        const yourCount = (text.match(/Your answer:/g) || []).length;
+        const correctCount = (text.match(/Correct answer:/g) || []).length;
+        if (yourCount !== c.missedN) return `score ${c.right}: "Your answer:" count ${yourCount} !== missed count ${c.missedN}`;
+        if (correctCount !== c.missedN) return `score ${c.right}: "Correct answer:" count ${correctCount} !== missed count ${c.missedN}`;
+        if (!text.includes('Check code: ABC1234')) return `score ${c.right}: check code not extractable`;
+      }
+      return null;
+    });
+
+    check('T49 the download filename follows "Animation Practice Test - <Name> - Attempt <n> - <YYYY-MM-DD>.pdf"', () => {
+      if (!/'Animation Practice Test - ' \+ pt100SafeFileName\(student\) \+ ' - Attempt ' \+ attempt \+ ' - ' \+ pt100FormatDateStamp\(completedAt\) \+ '\.pdf'/.test(src))
+        return 'pt100DownloadReport() does not build the filename in the required format';
+      const pt100FormatDateStamp = extractFunction('pt100FormatDateStamp');
+      const pt100SafeFileName = extractFunction('pt100SafeFileName');
+      if (!pt100FormatDateStamp || !pt100SafeFileName) return 'date/filename helper functions not found';
+      if (pt100FormatDateStamp(new Date(2026, 9, 16, 13, 32).getTime()) !== '2026-10-16') return 'pt100FormatDateStamp() did not produce YYYY-MM-DD';
+      const sanitized = pt100SafeFileName('Jo/Ann: Test*?');
+      if (sanitized !== 'Jo Ann Test') return `pt100SafeFileName() did not sanitize filesystem-illegal characters, got "${sanitized}"`;
+      return null;
+    });
+
+    check('T50 the PDF report is built from the SAVED attempt (pt100LoadState()), never the live in-memory session', () => {
+      const dlFn = src.match(/function pt100DownloadReport\s*\(\s*\)\s*\{[\s\S]*?\n\}/);
+      if (!dlFn) return 'pt100DownloadReport() not found';
+      if (!/pt100LoadState\(\)/.test(dlFn[0])) return 'pt100DownloadReport() does not read pt100LoadState() — it would not reflect the saved attempt';
+      if (/pt100Session/.test(dlFn[0])) return 'pt100DownloadReport() reads the live pt100Session instead of only the saved attempt';
       return null;
     });
 
