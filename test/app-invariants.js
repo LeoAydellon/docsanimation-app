@@ -574,7 +574,7 @@ if (!FORM_100) {
     console.log('skip  T34-T41 changing-retakes (PB-0052/PB-0055) checks — PT100_POOL not in this build');
   } else {
 
-    check('T34 PT100_POOL has 242 items and is byte-for-byte equivalent to POOL-v2.json (sha256 fd3eb80a…6812f)', () => {
+    check('T34 PT100_POOL has 242 items and is byte-for-byte equivalent to POOL-v2.json (sha256 927d3734…3917e7a)', () => {
       const fixturePath = path.join(__dirname, 'fixtures', 'POOL-v2.json');
       if (!fs.existsSync(fixturePath)) return 'fixtures/POOL-v2.json is missing — cannot verify against the source pool';
       const rawFixture = fs.readFileSync(fixturePath, 'utf8');
@@ -586,7 +586,7 @@ if (!FORM_100) {
       const a = crypto.createHash('sha256').update(JSON.stringify(canon)).digest('hex');
       const b = crypto.createHash('sha256').update(JSON.stringify(PT100_POOL)).digest('hex');
       console.log('      fixture file sha256: ' + fileHash + '\n      fixture sha256: ' + a + '\n      build   sha256: ' + b);
-      if (fileHash !== 'fd3eb80ac684c1ef6e12066b00ad8bb590d56224a53dc517d1d1cdf770e6812f') return 'fixtures/POOL-v2.json itself does not match the authorized sha256 — wrong file committed';
+      if (fileHash !== '927d373442ab7c4aa356fbb64431c71328e18711de9220bda7d95f20d3917e7a') return 'fixtures/POOL-v2.json itself does not match the authorized sha256 — wrong file committed';
       return a === b ? null : 'PT100_POOL differs from the canonical POOL-v2.json';
     });
 

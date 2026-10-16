@@ -2863,10 +2863,10 @@
    "JPEG",
    "PSD",
    "GIF",
-   "MP3"
+   "PNG"
   ],
   "answer": 1,
-  "why": "PSD is Photoshop's native working format and keeps layers, masks, and adjustments editable; JPEG and GIF flatten the image.",
+  "why": "PSD is Photoshop's native working format and keeps layers, masks, and adjustments editable; JPEG, GIF, and PNG save a flattened image.",
   "id": "N4-15",
   "src": "new 2026-10-16 (Pam)"
  },
@@ -3027,7 +3027,7 @@
   "options": [
    "A small, quick drawing used to explore ideas and compositions",
    "A finished, fully colored illustration ready to show the client",
-   "A small preview image that a 3D program saves with each model file",
+   "A rough 3D blockout model used to test a scene's layout",
    "A low-resolution texture used on small props far from the camera"
   ],
   "answer": 0,
@@ -3458,7 +3458,7 @@
  {
   "std": "7.0",
   "sub": "7.2",
-  "q": "What is a keyframe?",
+  "q": "In 3D animation software, what is a keyframe?",
   "options": [
    "A frame that has been cut out of the final film during the edit",
    "A frame where the animator sets a pose and software fills the gaps",
@@ -3625,13 +3625,13 @@
   "sub": "7.7",
   "q": "A looping walk cycle shows a visible hitch each time it repeats in the engine. What needs fixing?",
   "options": [
-   "The first and last poses do not match, so the loop is not seamless",
+   "The end of the cycle doesn't flow seamlessly back into the start",
    "The character model uses too many texture maps for the engine",
    "The camera angle in the engine is set too low for the walk",
    "The footstep audio in the engine is set too quiet to hear"
   ],
   "answer": 0,
-  "why": "For a clean loop, the end of the cycle must flow back into the start; a mismatch causes a pop on each repeat.",
+  "why": "For a clean loop, the last frames must flow back into the first; a mismatched or duplicated end pose causes a pop each time it repeats.",
   "id": "N7-16",
   "src": "new 2026-10-16 (Pam)"
  },
