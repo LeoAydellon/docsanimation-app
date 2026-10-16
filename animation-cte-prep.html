@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Animation CTE Prep — Verde Tech 1.16</title>
+<title>Animation CTE Prep — Verde Tech 1.17</title>
 <meta name="theme-color" content="#2f6b3f">
 <style>
   :root{
@@ -189,7 +189,7 @@
   <div class="hrow">
     <button class="back hide" id="backBtn">‹ Back</button>
     <div style="flex:1;min-width:0">
-      <div class="htitle" id="hTitle">Animation CTE Prep <span id="appVerTop">1.16</span></div>
+      <div class="htitle" id="hTitle">Animation CTE Prep <span id="appVerTop">1.17</span></div>
       <div class="hsub" id="hSub">Arizona Digital Animation · 10.0304.00</div>
     </div>
     <button class="who hide" id="whoBtn"></button>
@@ -316,6 +316,8 @@
         <div class="verdict" id="pt100Verdict"></div>
         <div class="subverdict" id="pt100Sub"></div>
       </div>
+      <div class="why hide" id="pt100SaveMsg" style="margin-top:14px"></div>
+      <button class="btn hide" id="pt100RetrySaveBtn" style="margin-top:10px">Try again</button>
       <div class="doms" id="pt100Doms"></div>
       <div class="doms" id="pt100Stds" style="margin-top:18px"></div>
     </div>
@@ -415,17 +417,22 @@ function pt100BuildRecord(existing, name, cls, right, total, passMark, appVersio
 }
 (function(){
   var PT100_RESULTS_DB = 'https://verde-animation-25368-default-rtdb.firebaseio.com/submissions/pt100-anim';
+  /* PB-0051: no silent .catch — a failed GET/PUT (bad response OR a thrown
+     network error) must reject so the caller can warn the student instead
+     of looking like the score saved. */
   function pt100SaveResult(name, cls, right, total, byDomain, byStd){
-    try {
-      var url = PT100_RESULTS_DB + '/' + pt100ResultKey(name, cls) + '.json';
-      fetch(url, { cache: 'no-store' })
-        .then(function(r){ return r.ok ? r.json() : null; })
-        .then(function(existing){
-          var rec = pt100BuildRecord(existing, name, cls, right, total, PT100_PASS, APP_VERSION, byDomain, byStd);
-          return fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) });
-        })
-        .catch(function(){});
-    } catch(e){}
+    var url = PT100_RESULTS_DB + '/' + pt100ResultKey(name, cls) + '.json';
+    return fetch(url, { cache: 'no-store' }).then(function(r){
+      if (!r.ok) throw new Error('pt100 GET failed: ' + r.status);
+      return r.json();
+    }).then(function(existing){
+      var rec = pt100BuildRecord(existing, name, cls, right, total, PT100_PASS, APP_VERSION, byDomain, byStd);
+      return fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) })
+        .then(function(r2){
+          if (!r2.ok) throw new Error('pt100 PUT failed: ' + r2.status);
+          return rec;
+        });
+    });
   }
   window.__pt100SaveResult = pt100SaveResult;
 })();
@@ -463,7 +470,7 @@ function needOf(t){ return t.kind==='tsa' ? BLUEPRINT.need : t.kind==='final' ? 
 function labelOf(t){ return t.kind==='tsa' ? BLUEPRINT.name.toUpperCase() : t.kind==='final' ? 'FINAL EXAM' : 'Checkpoint ' + t.ckNo; }
 
 /* ================= STATE ================= */
-const APP_VERSION = '1.16';   // bump with: node test/bump-version.js next
+const APP_VERSION = '1.17';   // bump with: node test/bump-version.js next
 const LS = 'animprep.v1';
 let student = '';
 let P = null;          // progress for the current student
@@ -947,6 +954,30 @@ function pt100LoadState(){
   try { return pt100LoadAll()[pt100Key(student)] || null; } catch(e){ return null; }
 }
 
+/* PB-0051: a completion whose cloud save failed is kept here (keyed the
+   same way as PT100_LS) so it can be resent once on the next page load,
+   or on demand from the "Try again" button — without re-showing the
+   result screen's score (that is only ever the live in-memory session's). */
+const PT100_PENDING_LS = 'animprep.pt100pending.v1';
+function pt100PendingAll(){ try { return JSON.parse(localStorage.getItem(PT100_PENDING_LS) || '{}'); } catch(e){ return {}; } }
+function pt100PendingSave(name, cls, right, total, byDomain, byStd){
+  try {
+    var all = pt100PendingAll();
+    all[pt100Key(name)] = { name: name, cls: cls, right: right, total: total, byDomain: byDomain, byStd: byStd };
+    localStorage.setItem(PT100_PENDING_LS, JSON.stringify(all));
+  } catch(e){}
+}
+function pt100PendingClear(name){
+  try {
+    var all = pt100PendingAll();
+    delete all[pt100Key(name)];
+    localStorage.setItem(PT100_PENDING_LS, JSON.stringify(all));
+  } catch(e){}
+}
+function pt100PendingGet(name){
+  try { return pt100PendingAll()[pt100Key(name)] || null; } catch(e){ return null; }
+}
+
 function pt100Fresh(){
   return { i: 0, marks: new Array(FORM_100.length).fill(null), right: 0, startedAt: Date.now(), done: false };
 }
@@ -1034,12 +1065,62 @@ function pt100Finish(){
   save();
   const byDomain = pt100ByGroup(S.marks, PT100_DOMAINS);
   const byStd = pt100ByGroup(S.marks, PT100_STDS);
-  if (window.__pt100SaveResult) {
-    window.__pt100SaveResult(student, (window.__vclass && window.__vclass()) || '', S.right, FORM_100.length, byDomain, byStd);
-  }
   pt100RenderResult(S.right, passed, byDomain, byStd);
   show('pt100result');
+  pt100AttemptSave(student, (window.__vclass && window.__vclass()) || '', S.right, FORM_100.length, byDomain, byStd);
 }
+
+/* PB-0051: the cloud save must never look like it silently succeeded.
+   This drives the result screen's save-status line + "Try again" button,
+   and keeps a pending-retry record in localStorage (PT100_PENDING_LS)
+   until a write is actually confirmed. pt100SaveInFlight guards against
+   the on-screen retry racing the original attempt (or a second retry
+   click), which could otherwise land two PUTs against the same record. */
+let pt100SaveInFlight = false;
+function pt100ShowSaveOk(){
+  const el = $('pt100SaveMsg');
+  el.className = 'why r';
+  el.innerHTML = '<b>Saved</b>Score saved for your teacher ✓';
+  el.classList.remove('hide');
+  $('pt100RetrySaveBtn').classList.add('hide');
+}
+function pt100ShowSaveFail(){
+  const el = $('pt100SaveMsg');
+  el.className = 'why w';
+  el.innerHTML = '<b>Not saved</b>Your score was NOT saved to your teacher’s gradebook. ' +
+    'Show this screen to Mr. Beltran, then tap Try again.';
+  el.classList.remove('hide');
+  $('pt100RetrySaveBtn').classList.remove('hide');
+}
+function pt100AttemptSave(name, cls, right, total, byDomain, byStd){
+  if (pt100SaveInFlight) return;
+  pt100SaveInFlight = true;
+  const el = $('pt100SaveMsg');
+  el.className = 'why';
+  el.innerHTML = '<b>Saving…</b>';
+  el.classList.remove('hide');
+  $('pt100RetrySaveBtn').classList.add('hide');
+  if (!window.__pt100SaveResult) {
+    pt100SaveInFlight = false;
+    pt100PendingSave(name, cls, right, total, byDomain, byStd);
+    pt100ShowSaveFail();
+    return;
+  }
+  window.__pt100SaveResult(name, cls, right, total, byDomain, byStd).then(function(){
+    pt100PendingClear(name);
+    pt100SaveInFlight = false;
+    pt100ShowSaveOk();
+  }).catch(function(){
+    pt100PendingSave(name, cls, right, total, byDomain, byStd);
+    pt100SaveInFlight = false;
+    pt100ShowSaveFail();
+  });
+}
+$('pt100RetrySaveBtn').onclick = () => {
+  const pending = pt100PendingGet(student);
+  if (!pending) return;
+  pt100AttemptSave(pending.name, pending.cls, pending.right, pending.total, pending.byDomain, pending.byStd);
+};
 
 function pt100DomHtml(rows, passLine){
   return rows.map(d => {
@@ -1114,6 +1195,28 @@ $('pt100ReviewBackBtn').onclick = () => show('pt100result');
   begin = function(name){
     _begin3.apply(this, arguments);
     if (wantsPt100()) startPt100();
+  };
+})();
+
+/* PB-0051: resend a PT100 result once on the next load if its cloud save
+   failed last time (pending flag written by pt100AttemptSave). Fires right
+   after begin(), same hook point as the deep link above, since that is the
+   first moment `student` is known. Silent either way — the student is not
+   on the result screen at this point, so there is nothing to show; a
+   renewed failure just leaves the pending record for the next load or an
+   explicit "Try again". attempts cannot double-count: the record's
+   attempts field only increments inside a confirmed write, and this is at
+   most one more PUT attempt for that same completion. */
+(function(){
+  const _begin5 = begin;
+  begin = function(name){
+    _begin5.apply(this, arguments);
+    const pending = pt100PendingGet(student);
+    if (pending && window.__pt100SaveResult) {
+      window.__pt100SaveResult(pending.name, pending.cls, pending.right, pending.total, pending.byDomain, pending.byStd)
+        .then(function(){ pt100PendingClear(pending.name); })
+        .catch(function(){});
+    }
   };
 })();
 

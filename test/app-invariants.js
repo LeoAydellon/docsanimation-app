@@ -35,16 +35,30 @@ const LIVE = 'https://leoaydellon.github.io/docsanimation-app/animation-cte-prep
 
 let pass = 0, fail = 0;
 const failures = [];
+const pendingChecks = []; // check()s whose fn() is async (e.g. T30's fetch interception) — awaited before RESULT
+
+function report(name, why) {
+  if (why) { fail++; failures.push([name, why]); console.log('FAIL  ' + name + '\n        ' + why); }
+  else { pass++; console.log('pass  ' + name); }
+}
 
 function check(name, fn) {
+  let result;
   try {
-    const why = fn();
-    if (why) { fail++; failures.push([name, why]); console.log('FAIL  ' + name + '\n        ' + why); }
-    else { pass++; console.log('pass  ' + name); }
+    result = fn();
   } catch (e) {
     fail++; failures.push([name, e.message]);
     console.log('FAIL  ' + name + '\n        threw: ' + e.message);
+    return;
   }
+  if (result && typeof result.then === 'function') {
+    pendingChecks.push(result.then(
+      why => report(name, why),
+      e => { fail++; failures.push([name, e.message]); console.log('FAIL  ' + name + '\n        threw: ' + e.message); }
+    ));
+    return;
+  }
+  report(name, result);
 }
 
 const src = fs.readFileSync(APP, 'utf8');
@@ -417,7 +431,104 @@ if (!FORM_100) {
   check('T28 pt100Finish() calls the PT100 results write, so it is wired and not dead code', () => {
     const finishFn = src.match(/function pt100Finish\s*\([^)]*\)\s*\{[\s\S]*?\n\}/);
     if (!finishFn) return 'pt100Finish() not found';
-    if (!/__pt100SaveResult\(/.test(finishFn[0])) return 'pt100Finish() never calls window.__pt100SaveResult(...)';
+    if (!/pt100AttemptSave\(/.test(finishFn[0])) return 'pt100Finish() never calls pt100AttemptSave(...)';
+    const attemptFn = src.match(/function pt100AttemptSave\s*\([^)]*\)\s*\{[\s\S]*?\n\}/);
+    if (!attemptFn) return 'pt100AttemptSave() not found';
+    if (!/__pt100SaveResult\(/.test(attemptFn[0])) return 'pt100AttemptSave() never calls window.__pt100SaveResult(...)';
+    return null;
+  });
+
+  /* -------------------------------------------- PB-0051: visible save-failure warning
+   * Leo 2026-10-15 19:55, requirement #4: a failed cloud save must never look
+   * like it succeeded. pt100SaveResult() must reject on both a non-ok HTTP
+   * response and a thrown network error (no silent .catch swallowing it),
+   * and the UI layer must show the right message/button for each outcome,
+   * using interception (a stand-in fetch) for each of the three fixtures
+   * the ticket names: 200, 401/permission-denied, and a network error. */
+
+  check('T29 pt100SaveResult() has no silent .catch left — GET/PUT failures must propagate', () => {
+    const m = src.match(/\(function\(\)\{\s*var PT100_RESULTS_DB[\s\S]*?window\.__pt100SaveResult = pt100SaveResult;\s*\}\)\(\);/);
+    if (!m) return 'the PT100 results-write IIFE was not found';
+    if (/\.catch\(function\(\)\{\}\)/.test(m[0])) return 'a silent empty .catch is still present — failures would be swallowed';
+    if (!/throw new Error/.test(m[0])) return 'no failure path throws — a non-ok GET/PUT response would be treated as success';
+    return null;
+  });
+
+  check('T30 pt100SaveResult() resolves on HTTP 200 and rejects on 401/permission-denied and on a thrown network error', async () => {
+    const src2 = fs.readFileSync(APP, 'utf8');
+    const m = src2.match(/\(function\(\)\{\s*var PT100_RESULTS_DB[\s\S]*?window\.__pt100SaveResult = pt100SaveResult;\s*\}\)\(\);/);
+    if (!m) return 'the PT100 results-write IIFE was not found';
+    const pt100ResultKey = extractFunction('pt100ResultKey');
+    const pt100BuildRecord = extractFunction('pt100BuildRecord');
+    if (!pt100ResultKey || !pt100BuildRecord) return 'pt100ResultKey()/pt100BuildRecord() not found — T30 depends on them';
+
+    function run(fixture){
+      const fn = new Function('window', 'fetch', 'APP_VERSION', 'PT100_PASS', 'pt100ResultKey', 'pt100BuildRecord',
+        m[0] + '\nreturn window.__pt100SaveResult;');
+      const pt100SaveResult = fn({}, fixture, '1.17', 95, pt100ResultKey, pt100BuildRecord);
+      return pt100SaveResult('ZZ Fixture', 'anim-fixture', 90, 100, [], []);
+    }
+
+    /* Fixture 1: GET 200 (no prior record) then PUT 200 — must resolve. */
+    let calls = 0;
+    const ok200 = () => { calls++; return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(calls === 1 ? null : {}) }); };
+    try { await run(ok200); } catch (e) { return 'fixture 200/200 should resolve, rejected instead: ' + e.message; }
+
+    /* Fixture 2: GET 401 permission-denied — must reject, and must NOT attempt the PUT. */
+    let putAttempted = false;
+    const denied401 = (url, opts) => {
+      if (opts && opts.method === 'PUT') putAttempted = true;
+      return Promise.resolve({ ok: false, status: 401, json: () => Promise.resolve({ error: 'Permission denied' }) });
+    };
+    let rejected401 = false;
+    try { await run(denied401); } catch (e) { rejected401 = true; }
+    if (!rejected401) return 'fixture 401/permission-denied should reject, resolved instead';
+    if (putAttempted) return 'fixture 401 on the GET should not go on to attempt a PUT';
+
+    /* Fixture 3: a thrown network error (offline) — must reject, not resolve. */
+    const networkError = () => Promise.reject(new TypeError('Failed to fetch'));
+    let rejectedNet = false;
+    try { await run(networkError); } catch (e) { rejectedNet = true; }
+    if (!rejectedNet) return 'fixture network-error should reject, resolved instead';
+
+    return null;
+  });
+
+  check('T31 a failed save shows the exact non-technical warning + Try again, a success shows the exact confirmation', () => {
+    const okMsg = src.match(/pt100ShowSaveOk[\s\S]*?innerHTML\s*=\s*([^;]+);/);
+    if (!okMsg) return 'pt100ShowSaveOk() message assignment not found';
+    if (!/Score saved for your teacher/.test(okMsg[1])) return 'success message text does not match the required wording';
+    const failMsg = src.match(/pt100ShowSaveFail[\s\S]*?innerHTML\s*=\s*([^;]+);/);
+    if (!failMsg) return 'pt100ShowSaveFail() message assignment not found';
+    if (!/NOT saved/.test(failMsg[1]) || !/gradebook/.test(failMsg[1])) return 'failure message text does not match the required wording';
+    if (!/Try again/.test(failMsg[1])) return 'failure message does not mention "Try again"';
+    if (!/id="pt100RetrySaveBtn"[^>]*>Try again</.test(src)) return 'no "Try again" button found in the markup';
+    return null;
+  });
+
+  check('T32 a confirmed-failed save is kept pending and resent once on the next load, and a confirmed write clears it', () => {
+    const attemptFn = src.match(/function pt100AttemptSave\s*\([^)]*\)\s*\{[\s\S]*?\n\}/);
+    if (!attemptFn) return 'pt100AttemptSave() not found';
+    if (!/pt100PendingSave\(/.test(attemptFn[0])) return 'pt100AttemptSave() does not persist a pending record on failure';
+    if (!/pt100PendingClear\(/.test(attemptFn[0])) return 'pt100AttemptSave() does not clear the pending record on a confirmed write';
+    if (!/pt100PendingGet\(student\)/.test(src)) return 'nothing reads back the pending record (resend-on-load / Try again would have nothing to resend)';
+    const beginWraps = src.match(/const _begin\d+ = begin;[\s\S]*?\}\)\(\);/g) || [];
+    const resend = beginWraps.find(w => /pt100PendingGet/.test(w));
+    if (!resend) return 'no begin() wrapper resends a pending save on the next load';
+    if (!/__pt100SaveResult\(/.test(resend)) return 'the resend-on-load wrapper never actually calls window.__pt100SaveResult(...)';
+    return null;
+  });
+
+  check('T33 pt100BuildRecord() attempts only increments inside the record a confirmed write produces, never speculatively', () => {
+    const attemptFn = src.match(/function pt100AttemptSave\s*\([^)]*\)\s*\{[\s\S]*?\n\}/);
+    if (!attemptFn) return 'pt100AttemptSave() not found';
+    if (/P\.attempts\[.pt100.\]\s*=/.test(attemptFn[0])) return 'pt100AttemptSave() touches P.attempts[\'pt100\'] — that counter belongs to startPt100() only, not the save path';
+    const pt100BuildRecord = extractFunction('pt100BuildRecord');
+    if (!pt100BuildRecord) return 'pt100BuildRecord() not found';
+    const first = pt100BuildRecord(null, 'ZZ Attempts', 'anim-fixture', 90, 100, 95, '1.17', [], []);
+    if (first.attempts !== 1) return `first-ever record should have attempts:1, got ${first.attempts}`;
+    const resent = pt100BuildRecord(first, 'ZZ Attempts', 'anim-fixture', 90, 100, 95, '1.17', [], []);
+    if (resent.attempts !== 2) return `resending against the existing record should increment to 2, got ${resent.attempts}`;
     return null;
   });
 
@@ -466,6 +577,7 @@ async function liveCheck() {
 }
 
 (async () => {
+  await Promise.all(pendingChecks);
   if (process.argv.includes('--live')) await liveCheck();
   console.log('\n' + '-'.repeat(52));
   console.log(`RESULT: ${pass} passed, ${fail} failed`);
