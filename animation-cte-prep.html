@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Animation CTE Prep — Verde Tech 1.23</title>
+<title>Animation CTE Prep — Verde Tech 1.24</title>
 <meta name="theme-color" content="#2f6b3f">
 <style>
   :root{
@@ -178,6 +178,65 @@
   .qart{text-align:center;margin:2px 0 16px}
   .qart .badge{display:inline-grid;place-items:center;width:92px;height:92px;border-radius:50%;background:#fdf3e2;border:2px solid #c8892b;font-size:52px;line-height:1;box-shadow:0 4px 14px rgba(200,137,43,.22)}
   .qart .qtag{display:block;width:max-content;margin:10px auto 0;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#c8892b;background:#fdf3e2;border:1px solid #e9d9b6;border-radius:999px;padding:3px 10px}
+
+  /* ================= PRACTICE TEST (100) — formal exam look (PB-0063) =================
+     Visual only, scoped to the three pt100 sections (plus the shared header while any
+     of them is open). No images/icons/gradients/colored cards/animation — plain white
+     page, dark-gray/black text, thin gray rules. Every other screen/mode is untouched:
+     none of these selectors exist outside #pt100test/#pt100result/#pt100review, and the
+     header override only fires while body.pt100-exam is set (toggled in show()). */
+  body.pt100-exam{background:#fff}
+  body.pt100-exam header{background:#fff;color:#1a1a1a;border-bottom:1px solid #ccc;box-shadow:none}
+  body.pt100-exam header .back{color:#1a1a1a}
+  body.pt100-exam header .who{border-color:#9a9a9a;color:#1a1a1a}
+  body.pt100-exam header .htitle{color:#111}
+  body.pt100-exam header .hsub{color:#444;opacity:1}
+
+  #pt100test, #pt100result, #pt100review{
+    font-family:Georgia,"Times New Roman",serif;color:#161616}
+  #pt100test .card, #pt100result .card, #pt100review .card{
+    background:#fff;border:1px solid #9a9a9a;border-radius:2px;box-shadow:none}
+  #pt100test .posbar{display:none}
+  #pt100test #pt100ExamHead{
+    border:1px solid #9a9a9a;border-bottom:2px solid #333;padding:10px 14px;
+    margin:0 0 14px;font-size:14px;line-height:1.7}
+  #pt100test .examhead-line{display:block}
+  #pt100test .examhead-line.b{font-weight:700}
+  #pt100test .qmeta{color:#333}
+  #pt100test .qtext{font-weight:700;color:#111}
+  #pt100test .opt{border:1px solid #777;border-radius:2px;background:#fff;color:#111}
+  #pt100test .opt .ltr{background:#fff;border:1px solid #777;color:#111;border-radius:2px}
+  #pt100test .opt.picked{border-color:#111;border-width:2px}
+  #pt100test .opt.right{background:#fff;border-color:#111;border-width:2px}
+  #pt100test .opt.right .ltr{background:#111;color:#fff}
+  #pt100test .opt.wrong{background:#fff;border-color:#111;border-style:dashed}
+  #pt100test .opt.wrong .ltr{background:#fff;color:#111;text-decoration:line-through}
+  #pt100test .why{border-radius:2px;background:#fff;border:1px solid #9a9a9a}
+  #pt100test .why.r, #pt100test .why.w{background:#fff;border:1px solid #9a9a9a}
+  #pt100test .why > b, #pt100test .why.r > b, #pt100test .why.w > b{color:#111}
+  #pt100test .why .ans b{color:#111}
+
+  #pt100test .btn, #pt100result .btn, #pt100review .btn{
+    background:#2a2a2a;color:#fff;border-radius:2px;border:1px solid #2a2a2a;font-weight:600}
+  #pt100test .btn.ghost, #pt100result .btn.ghost, #pt100review .btn.ghost{
+    background:#fff;color:#2a2a2a;border:1px solid #2a2a2a}
+  #pt100test .btn.quiet, #pt100result .btn.quiet, #pt100review .btn.quiet{
+    background:transparent;border:0;color:#444}
+
+  #pt100result .bigpct, #pt100result .bigpct.pass, #pt100result .bigpct.fail{color:#111 !important}
+  #pt100result .verdict, #pt100result .subverdict{color:#161616}
+  #pt100result .why, #pt100result .why.r, #pt100result .why.w{background:#fff;border:1px solid #9a9a9a}
+  #pt100result .why > b{color:#111}
+  #pt100result .examtable{width:100%;border-collapse:collapse;margin-top:8px;font-size:14px}
+  #pt100result .examtable th, #pt100result .examtable td{border:1px solid #9a9a9a;padding:6px 8px;text-align:left}
+  #pt100result .examtable td:last-child, #pt100result .examtable th:last-child{text-align:right}
+  #pt100result .examtable tr.weak td{font-weight:700}
+  #pt100result .doms h3{color:#333}
+
+  #pt100review .miss{border-left:3px solid #555 !important}
+  #pt100review .miss .mq{color:#111}
+  #pt100review .miss .ma{color:#333}
+  #pt100review .rep h2, #pt100review .rep .muted{color:#161616}
 </style>
 </head>
 <body>
@@ -189,7 +248,7 @@
   <div class="hrow">
     <button class="back hide" id="backBtn">‹ Back</button>
     <div style="flex:1;min-width:0">
-      <div class="htitle" id="hTitle">Animation CTE Prep <span id="appVerTop">1.23</span></div>
+      <div class="htitle" id="hTitle">Animation CTE Prep <span id="appVerTop">1.24</span></div>
       <div class="hsub" id="hSub">Arizona Digital Animation · 10.0304.00</div>
     </div>
     <button class="who hide" id="whoBtn"></button>
@@ -296,6 +355,7 @@
 
   <!-- ============ PRACTICE TEST (100) — PB-0041/PB-0042 ============ -->
   <section id="pt100test" class="hide">
+    <div id="pt100ExamHead"></div>
     <div class="qmeta">
       <span id="pt100Count"></span>
     </div>
@@ -674,7 +734,7 @@ function needOf(t){ return t.kind==='tsa' ? BLUEPRINT.need : t.kind==='final' ? 
 function labelOf(t){ return t.kind==='tsa' ? BLUEPRINT.name.toUpperCase() : t.kind==='final' ? 'FINAL EXAM' : 'Checkpoint ' + t.ckNo; }
 
 /* ================= STATE ================= */
-const APP_VERSION = '1.23';   // bump with: node test/bump-version.js next
+const APP_VERSION = '1.24';   // bump with: node test/bump-version.js next
 const LS = 'animprep.v1';
 let student = '';
 let P = null;          // progress for the current student
@@ -725,6 +785,7 @@ function show(v){
        else if(v==='test' && typeof session!=='undefined' && session && session.step) renderPos('testPos', session.step); }catch(_e){}
   ['gate','map','lesson','test','result','report','pt100test','pt100result','pt100review'].forEach(s =>
     $(s).classList.toggle('hide', s !== v));
+  document.body.classList.toggle('pt100-exam', v === 'pt100test' || v === 'pt100result' || v === 'pt100review');
   $('backBtn').classList.toggle('hide', v === 'gate' || v === 'map' || v === 'pt100test' || v === 'pt100result' || v === 'pt100review');
   $('whoBtn').classList.toggle('hide', v === 'gate');
   window.scrollTo(0, 0);
@@ -1231,8 +1292,20 @@ function startPt100(){
   show('pt100test');
 }
 
+/* Plain exam header block (PB-0063, visual only) — same text on every
+   question screen: subject/test name, class, student, question number. */
+function pt100ExamHeaderHtml(qNum, qTotal){
+  const cls = (window.__vclass && window.__vclass()) || '';
+  const clsLabel = pt100ClassLabel(cls) || cls;
+  return '<div class="examhead-line b">Digital Animation 10.0304.00 — Practice Test (100)</div>' +
+    (clsLabel ? '<div class="examhead-line">' + esc(clsLabel) + '</div>' : '') +
+    '<div class="examhead-line">' + esc(student || '') + '</div>' +
+    '<div class="examhead-line">Question ' + qNum + ' of ' + qTotal + '</div>';
+}
+
 function pt100RenderQ(){
   const S = pt100Session, item = S.items[S.i], pool = PT100_POOL_BY_ID[item.id];
+  $('pt100ExamHead').innerHTML = pt100ExamHeaderHtml(S.i + 1, S.items.length);
   $('pt100Count').textContent = 'Question ' + (S.i + 1) + ' of ' + S.items.length;
   $('pt100Bar').style.width = Math.round(S.i / S.items.length * 100) + '%';
   $('pt100QText').textContent = pool.q;
@@ -1341,7 +1414,7 @@ let pt100SaveInFlight = false;
 function pt100ShowSaveOk(){
   const el = $('pt100SaveMsg');
   el.className = 'why r';
-  el.innerHTML = '<b>Saved</b>Score saved for your teacher ✓';
+  el.innerHTML = '<b>Saved</b>Score saved for your teacher.';
   el.classList.remove('hide');
   $('pt100RetrySaveBtn').classList.add('hide');
 }
@@ -1383,14 +1456,16 @@ $('pt100RetrySaveBtn').onclick = () => {
   pt100AttemptSave(pending.name, pending.cls, pending.right, pending.total, pending.byDomain, pending.byStd, pending.pool, pending.items, pending.completedAt);
 };
 
-function pt100DomHtml(rows, passLine){
-  return rows.map(d => {
+/* Plain score table (PB-0063, visual only) — no bar graphics. */
+function pt100DomHtml(rows, passLine, label){
+  const body = rows.map(d => {
     const pct = d.n ? Math.round(d.right / d.n * 100) : 0;
     const weak = d.n && (d.right / d.n) < passLine;
-    return '<div class="dom' + (weak ? ' weak' : '') + '"><div class="dl"><b>' + esc(d.name) + '</b><span>' +
-      d.right + '/' + d.n + ' · ' + pct + '%</span></div>' +
-      '<div class="bar"><i style="width:' + pct + '%"></i></div></div>';
+    return '<tr' + (weak ? ' class="weak"' : '') + '><td>' + esc(d.name) + '</td>' +
+      '<td>' + d.right + '/' + d.n + '</td><td>' + pct + '%</td></tr>';
   }).join('');
+  return '<table class="examtable"><thead><tr><th>' + esc(label) + '</th><th>Score</th><th>%</th></tr></thead>' +
+    '<tbody>' + body + '</tbody></table>';
 }
 
 function pt100RenderResult(right, total, passed, byDomain, byStd){
@@ -1401,8 +1476,8 @@ function pt100RenderResult(right, total, passed, byDomain, byStd){
   $('pt100Verdict').textContent = (passed ? 'Passing score — ' : 'Not yet — ') + right + ' of ' + total;
   $('pt100Sub').textContent = 'Proposed classroom passing score: ' + PT100_PASS + ' of ' + total +
     ' (' + Math.round(passLine * 100) + '%) — not ADE\'s official score.';
-  $('pt100Doms').innerHTML = '<h3>By blueprint domain</h3>' + pt100DomHtml(byDomain, passLine);
-  $('pt100Stds').innerHTML = '<h3>By standard</h3>' + pt100DomHtml(byStd, passLine);
+  $('pt100Doms').innerHTML = '<h3>By blueprint domain</h3>' + pt100DomHtml(byDomain, passLine, 'Domain');
+  $('pt100Stds').innerHTML = '<h3>By standard</h3>' + pt100DomHtml(byStd, passLine, 'Standard');
 }
 
 /* PB-0052: full review -- every item of the SAVED attempt (not the live
